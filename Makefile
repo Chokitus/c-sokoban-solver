@@ -25,5 +25,12 @@ $(OUTPUT_DIR)/Sokoban_Heuristic.exe: heuristic/sokoban_heuristic.c $(OUTPUT_DIR)
 $(OUTPUT_DIR):
 	mkdir -p $(OUTPUT_DIR)
 
+test:
+	$(OUTPUT_DIR)/Sokoban_HashTableList.exe level_-1
+	$(OUTPUT_DIR)/Sokoban_Trie.exe level_00
+	$(OUTPUT_DIR)/SokobanMP_Andar.exe level_-1
+	$(OUTPUT_DIR)/SokobanMP_Digito.exe level_-1
+	$(OUTPUT_DIR)/Sokoban_Heuristic.exe level_-1
+
 clean:
 	rm -rf target/
