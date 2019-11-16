@@ -1,21 +1,16 @@
 #include "../../common/sort.h"
+#include "../../common/util.h"
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#define copyState(s, s2) memcpy(s2, s, sizeof(State))
-
 // Quantos estados cada thread deve explorar
 #define SIZE_THREAD_LIST 10000
 
-#define NANOS ((unsigned long)1000000000)
-
 // Quantos estados por thread a main deve criar antes de seguir
 #define NUM_MAIN_STATES 1000
-
-enum Direcoes { direita = 0, esquerda = 1, cima = 2, baixo = 3 };
 
 // Estado que estaremos analisando
 typedef struct State {

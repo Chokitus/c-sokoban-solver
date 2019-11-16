@@ -1,20 +1,15 @@
 #include "../../common/sort.h"
+#include "../../common/util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#define copyState(s, s2) memcpy(s2, s, sizeof(State))
-
 // Valor do módulo usado no hashing do id (que por si só é um hash)
 #define ID_HASH 100000000
 
-#define NANOS ((unsigned long)1000000000)
-
 // Tamanho máximo do caminho
 #define MAX_PATH_SIZE 3000
-
-enum Direcoes { direita = 0, esquerda = 1, cima = 2, baixo = 3 };
 
 // Estado que estaremos analisando
 typedef struct State {

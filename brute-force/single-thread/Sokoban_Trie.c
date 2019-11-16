@@ -1,16 +1,11 @@
 #include "../../common/sort.h"
+#include "../../common/util.h"
 #include <omp.h>
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#define copyState(s, s2) memcpy(s2, s, sizeof(State))
-
-#define NANOS ((unsigned long)1000000000)
-
-enum Direcoes { direita = 0, esquerda = 1, cima = 2, baixo = 3 };
 
 // Estado que estaremos analisando
 typedef struct State {

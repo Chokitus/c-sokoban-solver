@@ -1,17 +1,12 @@
 #include "../common/sort.h"
+#include "../common/util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define copyState(s, s2) memcpy(s2, s, sizeof(State))
 #define MAX_Node 100000000
 #define ID_HASH 100000000
 #define MAX_PATH_SIZE 3000
-
-// Para trocar o nível a ser resolvido, mude o valor presente na linha 279 para
-// level__, onde __ representa o nível que quer encontrar uma solução.
-
-enum Direcoes { direita = 0, esquerda = 1, cima = 2, baixo = 3 };
 
 // Estado que estaremos analisando
 typedef struct State {
