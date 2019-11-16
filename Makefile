@@ -1,15 +1,29 @@
-all: SokobanMP_Andar.exe SokobanMP_Digito.exe Sokoban_HashTableList.exe Sokoban_Trie.exe Sokoban_Heuristic.exe
+OUTPUT_DIR = target
 
-SokobanMP_Andar.exe: brute-force/multi-thread/SokobanMP_Andar.c
-	gcc -O2 -o SokobanMP_Andar.exe -fopenmp brute-force/multi-thread/SokobanMP_Andar.c
-SokobanMP_Digito.exe: brute-force/multi-thread/SokobanMP_Digito.c
-	gcc -O2 -o SokobanMP_Digito.exe -fopenmp brute-force/multi-thread/SokobanMP_Digito.c
-Sokoban_HashTableList.exe: brute-force/single-thread/Sokoban_HashTableList.c
-	gcc -O2 -o Sokoban_HashTableList.exe brute-force/single-thread/Sokoban_HashTableList.c
-Sokoban_Trie.exe: brute-force/single-thread/Sokoban_Trie.c
-	gcc -O2 -o Sokoban_Trie.exe brute-force/single-thread/Sokoban_Trie.c
-Sokoban_Heuristic.exe: heuristic/sokoban_heuristic.c
-	gcc -O2 -o Sokoban_Heuristic.exe heuristic/sokoban_heuristic.c
+all: $(OUTPUT_DIR)/SokobanMP_Andar.exe $(OUTPUT_DIR)/SokobanMP_Digito.exe \
+$(OUTPUT_DIR)/Sokoban_HashTableList.exe $(OUTPUT_DIR)/Sokoban_Trie.exe \
+$(OUTPUT_DIR)/Sokoban_Heuristic.exe
+
+$(OUTPUT_DIR)/sort.o: $(OUTPUT_DIR) common/sort.h common/sort.c
+	gcc -O2 -o $(OUTPUT_DIR)/sort.o -c common/sort.c
+
+$(OUTPUT_DIR)/SokobanMP_Andar.exe: brute-force/multi-thread/SokobanMP_Andar.c $(OUTPUT_DIR)/sort.o
+	gcc -O2 -o target/SokobanMP_Andar.exe -fopenmp brute-force/multi-thread/SokobanMP_Andar.c $(OUTPUT_DIR)/*.o
+
+$(OUTPUT_DIR)/SokobanMP_Digito.exe: brute-force/multi-thread/SokobanMP_Digito.c $(OUTPUT_DIR)/sort.o
+	gcc -O2 -o target/SokobanMP_Digito.exe -fopenmp brute-force/multi-thread/SokobanMP_Digito.c $(OUTPUT_DIR)/*.o
+
+$(OUTPUT_DIR)/Sokoban_HashTableList.exe: brute-force/single-thread/Sokoban_HashTableList.c $(OUTPUT_DIR)/sort.o
+	gcc -O2 -o target/Sokoban_HashTableList.exe brute-force/single-thread/Sokoban_HashTableList.c $(OUTPUT_DIR)/*.o
+
+$(OUTPUT_DIR)/Sokoban_Trie.exe: brute-force/single-thread/Sokoban_Trie.c $(OUTPUT_DIR)/sort.o
+	gcc -O2 -o target/Sokoban_Trie.exe brute-force/single-thread/Sokoban_Trie.c $(OUTPUT_DIR)/*.o
+
+$(OUTPUT_DIR)/Sokoban_Heuristic.exe: heuristic/sokoban_heuristic.c $(OUTPUT_DIR)/sort.o
+	gcc -O2 -o target/Sokoban_Heuristic.exe heuristic/sokoban_heuristic.c $(OUTPUT_DIR)/*.o
+
+$(OUTPUT_DIR):
+	mkdir -p $(OUTPUT_DIR)
 
 clean:
-	rm *.exe
+	rm -rf target/

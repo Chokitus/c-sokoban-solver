@@ -1,3 +1,4 @@
+#include "../../common/sort.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +24,7 @@ enum Direcoes{
 //Estado que estaremos analisando
 typedef struct State{
 	//Todas as posições se baseiam no fato que não há mapa com mais de 19 de largura/altura. Portanto, a posição é 20*y+x;
-	unsigned char posPlayer;
+	unsigned short posPlayer;
 	unsigned short posBoxes[30];
 	unsigned short posGoals[30];
 	unsigned char grid[400];
@@ -103,38 +104,6 @@ void insertId(unsigned char *idHash, unsigned long long int id){
 	(*idIterator)->nextId->nextId = NULL;
 }
 
-//Funções para o quicksort. Foram pegas diretamente de https://www.geeksforgeeks.org/quick-sort/
-void swap(unsigned short* a, unsigned short* b){
-	int t = *a;
-	*a = *b;
-	*b = t;
-}
-
-short partition (unsigned short arr[], int low, int high){
-	short pivot = arr[high];
-	int i = (low - 1);
-
-	for (int j = low; j <= high- 1; j++)
-	{
-		if (arr[j] <= pivot)
-		{
-			i++;
-			swap(&arr[i], &arr[j]);
-		}
-	}
-	swap(&arr[i + 1], &arr[high]);
-	return (i + 1);
-}
-
-void quickSort(unsigned short arr[], int low, int high){
-	if (low < high){
-		int pi = partition(arr, low, high);
-
-		quickSort(arr, low, pi - 1);
-		quickSort(arr, pi + 1, high);
-	}
-}
-
 //-------------------------------------------------------------------
 
 //Função que retorna o índice relacionado ao ID.
@@ -154,7 +123,7 @@ unsigned char getStateId(State *s){
 	//Fazemos um sort pois a ordem das caixas não pode importar
 	quickSort(s->posBoxes, 0, s->boxes - 1);
 
-	//Pensando que cada caixa tem até 3 dígitos, precisamos de 3+1 dígitos para cada baixa, 
+	//Pensando que cada caixa tem até 3 dígitos, precisamos de 3+1 dígitos para cada baixa,
 	//e após 3 dígitos para o player
 	unsigned char idHash[s->boxes*4+4];
 
@@ -269,7 +238,7 @@ void buildMap(struct State *s, char *level){
 	char str[16] = "levels/";
 	strcat(str, level);
 	FILE *file = fopen(str,"r");
-	
+
 	char line[20];
 
 	int x, maxWidth, height;
@@ -506,7 +475,7 @@ void popState(Node **root, State** rootState){
 
 	//Há mais de um, portanto devemos trocar de lugar o antigo com o novo
 	Node *tempNode = (*root);
-	(*root) = (*root)->nextState;	
+	(*root) = (*root)->nextState;
 	free(tempNode);
 }
 

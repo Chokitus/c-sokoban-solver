@@ -1,3 +1,4 @@
+#include "../common/sort.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,7 +8,7 @@
 #define ID_HASH 100000000
 #define MAX_PATH_SIZE 3000
 
-//Para trocar o nível a ser resolvido, mude o valor presente na linha 279 para level__, onde __ representa o nível que quer encontrar uma solução.
+//Para trocar o nÃ­vel a ser resolvido, mude o valor presente na linha 279 para level__, onde __ representa o nÃ­vel que quer encontrar uma soluÃ§Ã£o.
 
 enum Direcoes{
 	direita = 0,
@@ -18,22 +19,22 @@ enum Direcoes{
 
 //Estado que estaremos analisando
 typedef struct State{
-	//Todas as posições se baseiam no fato que não há mapa com mais de 19 de largura/altura. Portanto, a posição é 20*y+x;
+	//Todas as posiÃ§Ãµes se baseiam no fato que nÃ£o hÃ¡ mapa com mais de 19 de largura/altura. Portanto, a posiÃ§Ã£o Ã© 20*y+x;
 	unsigned char posPlayer;
-	unsigned int posBoxes[30];
-	unsigned char posGoals[30];
+	unsigned short posBoxes[30];
+	unsigned short posGoals[30];
 	unsigned char grid[400];
 	//Quantidade de caixas encontradas
 	unsigned char boxes;
 	//Quantidade de caixas no objetivo
 	unsigned char boxesOnGoals;
-	//Caminho para a solução
+	//Caminho para a soluÃ§Ã£o
 	unsigned char path[MAX_PATH_SIZE];
 	unsigned int pathSize;
 	unsigned int heuristic;
 } State;
 
-//Lista ligada (com hash de resto da divisão) para os ids visitados.
+//Lista ligada (com hash de resto da divisÃ£o) para os ids visitados.
 typedef struct visitedId{
 	unsigned char *stateId;
 	struct visitedId* nextId;
@@ -45,7 +46,7 @@ typedef struct Node{
 	struct Node *nextState;
 } Node;
 
-//Quantidade de nós visitados
+//Quantidade de nÃ³s visitados
 unsigned int numberOfNodes;
 
 //Array para o espalhamento dos IDs.
@@ -64,15 +65,15 @@ void printPath(State *s){
 
 }
 
-//Função que procura o id na lista
+//FunÃ§Ã£o que procura o id na lista
 unsigned char findId(char *idHash, unsigned long long int id){
 	//Primeiro pegamos o index
 	unsigned int idIndex = id % ID_HASH;
 
-	//Começamos da cabeça da lista
+	//ComeÃ§amos da cabeÃ§a da lista
 	visitedId **idIterator = &(idList[idIndex]);
 
-	//E iteramos até o final
+	//E iteramos atÃ© o final
 	while((*idIterator) != NULL){
 		if(strcmp((*idIterator)->stateId, idHash) == 0){
 			//Encontrou o id, significa que este estado foi visitado antes
@@ -80,15 +81,15 @@ unsigned char findId(char *idHash, unsigned long long int id){
 		}
 		idIterator = &((*idIterator)->nextId);
 	}
-	//Não encontrou, é um estado novo
+	//NÃ£o encontrou, Ã© um estado novo
 	return 0;
 }
 
 void insertId(unsigned char *idHash, unsigned long long int id){
-	//Pegamos o índice
+	//Pegamos o Ã­ndice
 	storedIds++;
 
-	//Começamos da cabeça da lista
+	//ComeÃ§amos da cabeÃ§a da lista
 	visitedId **idIterator = &(idList[id % ID_HASH]);
 
 	if((*idIterator) == NULL){
@@ -105,39 +106,6 @@ void insertId(unsigned char *idHash, unsigned long long int id){
 	(*idIterator)->nextId->nextId = NULL;
 }
 
-//Funções para o quicksort. Foram pegas diretamente de https://www.geeksforgeeks.org/quick-sort/
-
-void swap(unsigned int* a, unsigned int* b){
-	int t = *a;
-	*a = *b;
-	*b = t;
-}
-
-int partition (unsigned int arr[], int low, int high){
-	int pivot = arr[high];
-	int i = (low - 1);
-
-	for (int j = low; j <= high- 1; j++)
-	{
-		if (arr[j] <= pivot)
-		{
-			i++;
-			swap(&arr[i], &arr[j]);
-		}
-	}
-	swap(&arr[i + 1], &arr[high]);
-	return (i + 1);
-}
-
-void quickSort(unsigned int arr[], int low, int high){
-	if (low < high){
-		int pi = partition(arr, low, high);
-
-		quickSort(arr, low, pi - 1);
-		quickSort(arr, pi + 1, high);
-	}
-}
-
 //-------------------------------------------------------------------
 
 unsigned long long int getIdIndex(State *s){
@@ -149,9 +117,9 @@ unsigned long long int getIdIndex(State *s){
 	h = ((h << 5) + h) + s->posPlayer/2 + s->posPlayer % 20;
 }
 
-//Função de Hash para pegar o ID do Estado
+//FunÃ§Ã£o de Hash para pegar o ID do Estado
 unsigned char getStateId(State *s){
-	//Fazemos um sort pois a ordem das caixas não pode importar
+	//Fazemos um sort pois a ordem das caixas nÃ£o pode importar
 	quickSort(s->posBoxes, 0, s->boxes - 1);
 
 	unsigned char idHash[s->boxes*4+5];
@@ -160,7 +128,7 @@ unsigned char getStateId(State *s){
 
 	unsigned long long h = getIdIndex(s);
 	for(int i = 0; i < s->boxes; i++){
-		sprintf(buffer, "%d", s->posBoxes[i]);
+		sprintf(buffer, "%hu", s->posBoxes[i]);
 		strcat(idHash, buffer);
 		strcat(idHash, " ");
 	}
@@ -173,7 +141,7 @@ unsigned char getStateId(State *s){
 		return 1;
 	}
 
-	//Sendo id único, inserimos o mesmo
+	//Sendo id Ãºnico, inserimos o mesmo
 	insertId(idHash, h);
 
 	return 0;
@@ -192,43 +160,43 @@ int getHeuristic(State *s){
 
 	//Para cada caixa
 	for(int i = 0; i < 30 && s->posBoxes[i] != 0; i++){
-		//Começamos com um número grande que não será superado, visto que a maior distância possível seria 2*20² = 800
+		//ComeÃ§amos com um nÃºmero grande que nÃ£o serÃ¡ superado, visto que a maior distÃ¢ncia possÃ­vel seria 2*20Â² = 800
 		min = 1000;
 
-		//Pegamos a posição x e y
+		//Pegamos a posiÃ§Ã£o x e y
 		x = s->posBoxes[i] % 20;
 		y = s->posBoxes[i] / 20;
 
 		//Para cada goal
 		for(int j = 0; j < 30 && s->posGoals[j] != 0; j++){
-			//Pegamos a posição x e y
+			//Pegamos a posiÃ§Ã£o x e y
 			xGoal = s->posGoals[j] % 20;
 			yGoal = s->posGoals[j] / 20;
 
-			//"Distância" na forma (x-x')+(y-y'). Entre aspas pois o correto seria a raiz do mesmo, mas isto não importa para nós
+			//"DistÃ¢ncia" na forma (x-x')+(y-y'). Entre aspas pois o correto seria a raiz do mesmo, mas isto nÃ£o importa para nÃ³s
 			dist = (x - xGoal)*(x - xGoal) + (y - yGoal)*(y - yGoal);
 
 			if(dist < min){
-				//Devemos tomar a mínima das distâncias, pois níveis com goals muito separados nos dariam problemas
+				//Devemos tomar a mÃ­nima das distÃ¢ncias, pois nÃ­veis com goals muito separados nos dariam problemas
 				if(dist == 0){
-					//Se min == 0, então a caixa está em um goal, então é inútil procurar nos demais.
+					//Se min == 0, entÃ£o a caixa estÃ¡ em um goal, entÃ£o Ã© inÃºtil procurar nos demais.
 					break;
 				}
 				if(s->grid[s->posGoals[j]] != '*'){
-					//Faremos essa atribuição para o min somente se o goal que estamos olhando não possui uma caixa sobre ele.
-					//Como esta caixa não entrou em dist == 0, significa que se uma caixa está sobre o goal, não é a que estamos olhando.
+					//Faremos essa atribuiÃ§Ã£o para o min somente se o goal que estamos olhando nÃ£o possui uma caixa sobre ele.
+					//Como esta caixa nÃ£o entrou em dist == 0, significa que se uma caixa estÃ¡ sobre o goal, nÃ£o Ã© a que estamos olhando.
 					min = dist;
 				}
 			}
 		}
 
-		//Nossa heurística é, assim, a somatória das distâncias mínimas das caixas aos objetivos.
+		//Nossa heurÃ­stica Ã©, assim, a somatÃ³ria das distÃ¢ncias mÃ­nimas das caixas aos objetivos.
 		h += min;
 	}
 
 	//s->heuristic = h;
 
-	//Dividimos a mesma pela quantidade de caixas nos alvos para que esta ação seja recompensada
+	//Dividimos a mesma pela quantidade de caixas nos alvos para que esta aÃ§Ã£o seja recompensada
 	s->heuristic = h/(s->boxesOnGoals+1);
 	//s->heuristic = 1;
 	return h;
@@ -236,7 +204,7 @@ int getHeuristic(State *s){
 
 void placeThis(char c, int x, int y, struct State *s){
 	if((int) c == 32){
-		// Espaço vazio
+		// EspaÃ§o vazio
 		return;
 	}
 
@@ -245,12 +213,12 @@ void placeThis(char c, int x, int y, struct State *s){
 	s->grid[pos] = c;
 
 	if(c == '@'){
-		//É o player.
+		//Ã‰ o player.
 		s->posPlayer = pos;
 		return;
 	}
 	if(c == '$'){
-		//É uma caixa.
+		//Ã‰ uma caixa.
 		s->posBoxes[s->boxes++] = pos;
 		return;
 	}
@@ -261,13 +229,13 @@ void placeThis(char c, int x, int y, struct State *s){
 	}
 
 	if(c == '.'){
-		//É um alvo.
+		//Ã‰ um alvo.
 		s->posGoals[i] = pos;
 		return;
 	}
 
 	if(c == '*'){
-		//É um alvo e uma caixa.
+		//Ã‰ um alvo e uma caixa.
 		s->posGoals[i] = pos;
 		s->posBoxes[s->boxes++] = pos;
 		s->boxesOnGoals++;
@@ -275,7 +243,7 @@ void placeThis(char c, int x, int y, struct State *s){
 	}
 
 	if(c == '+'){
-		//É o player e um alvo.
+		//Ã‰ o player e um alvo.
 		s->posGoals[i] = pos;
 		s->posPlayer = pos;
 	}
@@ -294,13 +262,13 @@ void buildMap(struct State *s, char *level){
 	last = (Node**) malloc(sizeof(void*));
 	(*last) = NULL;
 
-	//Abrimos o níve l
+	//Abrimos o nÃ­ve l
 	char str[16] = "levels/";
 
 	strcat(str, level);
 	//FILE *file = fopen("levels/level_00","r");
 	FILE *file = fopen(str,"r");
-	
+
 	char line[20];
 
 	int x, maxWidth, height;
@@ -329,7 +297,7 @@ void buildMap(struct State *s, char *level){
 	getHeuristic(s);
 	getStateId(s);
 
-	printf("\nO mapa é %d x %d\n", maxWidth, height+1);
+	printf("\nO mapa Ã© %d x %d\n", maxWidth, height+1);
 	printf("O mapa possui %d caixas.\n", s->boxes);
 };
 
@@ -397,10 +365,10 @@ char movePlayer(struct State *s, int dir){
 		break;
 	}
 
-	//Usamos o trecho de código para obter o parametro de movimento, assim como o caracter.
-	//Como parâmetro de movimento, queremos transformar a visao 1D do array no movimento 2D do personagem, ou seja,
-	//dado que cada linha possui 20 colunas, "andar para cima" recua 20 colunas, por isso o movingParam é -20.
-	//A mesma lógica se aplica para os outros
+	//Usamos o trecho de cÃ³digo para obter o parametro de movimento, assim como o caracter.
+	//Como parÃ¢metro de movimento, queremos transformar a visao 1D do array no movimento 2D do personagem, ou seja,
+	//dado que cada linha possui 20 colunas, "andar para cima" recua 20 colunas, por isso o movingParam Ã© -20.
+	//A mesma lÃ³gica se aplica para os outros
 
 	tempPos = s->posPlayer + movingParam;
 
@@ -410,11 +378,11 @@ char movePlayer(struct State *s, int dir){
 	}
 
 	if(s->grid[tempPos] == '$' || s->grid[tempPos] == '*'){
-		//Tem uma caixa na direção
+		//Tem uma caixa na direÃ§Ã£o
 		if(checkWallsAt(s, tempPos + movingParam) == 1 ||
 				s->grid[tempPos + movingParam] == '$' ||
 				s->grid[tempPos + movingParam] == '*'){
-			//Tem uma parede ou caixa após a caixa.
+			//Tem uma parede ou caixa apÃ³s a caixa.
 			return 0;
 		};
 		//Deixa a letra maiuscula
@@ -434,18 +402,18 @@ char movePlayer(struct State *s, int dir){
 			s->boxesOnGoals--;
 		}
 		else{
-			//Não estava sobre nada
+			//NÃ£o estava sobre nada
 			s->grid[tempPos] = 32;
 		}
 		if(s->grid[tempPos + movingParam] == '.'){
-			//A posição de destino da caixa é alvo
+			//A posiÃ§Ã£o de destino da caixa Ã© alvo
 			s->grid[tempPos + movingParam] = '*';
 			s->boxesOnGoals++;
 		}
 		else{
 			s->grid[tempPos + movingParam] = '$';
 		}
-		//Move a caixa nas posições
+		//Move a caixa nas posiÃ§Ãµes
 		for(int i = 0; i < 30 && s->posBoxes[i] != 0; i++){
 			if(s->posBoxes[i] == tempPos){
 				s->posBoxes[i] += movingParam;
@@ -455,7 +423,7 @@ char movePlayer(struct State *s, int dir){
 
 	s->posPlayer = tempPos;
 
-	//Verifica se o Id é único e claro, qual seu valor.
+	//Verifica se o Id Ã© Ãºnico e claro, qual seu valor.
 	if(getStateId(s)){
 		return 0;
 	}
@@ -475,37 +443,37 @@ unsigned char isFinal(State *s){
 
 unsigned char insertState(Node **root, State *s){
 	if(isFinal(s)){
-		//É final
+		//Ã‰ final
 		return 1;
 	}
 
 	numberOfNodes++;
 	activeStates++;
 
-	//Lista está vazia.
+	//Lista estÃ¡ vazia.
 	if((*root) == NULL){
-		//Criamos o nó
+		//Criamos o nÃ³
 		(*root) = (Node*) malloc(sizeof(Node));
 
-		//Last também estará nulo neste caso, portanto criaremos um novo.
+		//Last tambÃ©m estarÃ¡ nulo neste caso, portanto criaremos um novo.
 		(*last) = (Node*) malloc(sizeof(Node));
 		(*last)->state = NULL;
 
 		(*root)->nextState = (*last);
 	numberOfNodes++;
-		//Colocamos o estado no nó
+		//Colocamos o estado no nÃ³
 		(*root)->state = (State*) malloc(sizeof(State));
 		copyState(s, (*root)->state);
 		return 0;
 	}
 
-	//Colocamos este estado no último
+	//Colocamos este estado no Ãºltimo
 	(*last)->state = (State*) malloc(sizeof(State));
 	copyState(s, (*last)->state);
 	(*last)->nextState = (Node*) malloc(sizeof(Node));
 	(*last)->nextState->state = NULL;
 
-	//Mudamos a posição do último estado.
+	//Mudamos a posiÃ§Ã£o do Ãºltimo estado.
 	last = &((*last)->nextState);
 	return 0;
 }
@@ -515,14 +483,14 @@ void popState(Node **s, State** rootState){
 
 	activeStates--;
 
-	//Se o próximo esta vazio, este deve ser anulado
+	//Se o prÃ³ximo esta vazio, este deve ser anulado
 	if((*s)->nextState == NULL){
 		free((*s));
 		(*s) = NULL;
 		return;
 	}
 
-	//Há mais de um, portanto devemos trocar de lugar o antigo com o novo
+	//HÃ¡ mais de um, portanto devemos trocar de lugar o antigo com o novo
 	Node *tempNode = (*s);
 	(*s) = (*s)->nextState;
 	free(tempNode);
@@ -562,7 +530,7 @@ int main(int argc, char* argv[]){
 			}
 
 			if(final == 1){
-				printf("Achei a solução!\n");
+				printf("Achei a soluÃ§Ã£o!\n");
             printPath(s);
 				break;
 			}
