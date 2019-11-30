@@ -17,10 +17,6 @@ typedef struct idTrie {
 // Ponteiro para a raiz da trie de ids.
 idTrie *mainId;
 
-// Largura e altura do mapa
-unsigned int width = 0;
-unsigned int height = 0;
-
 // Ponteiro para o último estado da lista principal.
 State **lastMainState;
 
@@ -111,75 +107,6 @@ unsigned char getStateId(State *s) {
 	return findId(s) == 0;
 }
 
-// Função para a construção do mapa
-void buildMap(State *s, char *level) {
-	// Número de caixas, global
-	s->boxes = 0;
-
-	// Inicializamos o número de caixas em objetivos
-	s->boxesOnGoals = 0;
-
-	// Inicializamos a posição das caixas
-	memset(s->posBoxes, 0, 30);
-
-	// Inicializamos o grid com 32, ou ' '
-	memset(s->grid, 32, 400);
-
-	// Ponteiro para o último estado principal é inicializado.
-	lastMainState = malloc(sizeof(State *));
-	*lastMainState = NULL;
-
-	// Ponteiro para a raiz da trie de Ids
-	mainId = malloc(sizeof(idTrie));
-	memset(mainId->idLeafs, 0, 10 * sizeof(idTrie *));
-
-	// Inicializamos a ação com nulo, pois é como saberemos que voltamos até o
-	// começo do processo
-	s->lastAction = malloc(sizeof(ActionList));
-	s->lastAction->prevAction = NULL;
-	s->lastAction->action = 0;
-
-	// Abrimos o nível
-	char str[16] = "levels/";
-
-	strcat(str, level);
-
-	FILE *file = fopen(str, "r");
-
-	char line[20];
-
-	int x, maxWidth;
-	maxWidth = 0;
-	height = -1;
-
-	// Pegamos 20 caracteres de cada linha, até que a linha retorne nulo.
-	while (fgets(line, 20, file) != NULL) {
-		// Se a linha for 0 ou 10 (nova linha), estamos fora do mapa
-		if (line[0] != 0 && line[0] != 10) {
-			// Aumentamos a altura
-			height++;
-
-			// Pra cada caracter, colocamos o objeto no mapa.
-			for (x = 0; (int)line[x] != 0 && (int)line[x] != 10; x++) {
-				placeThis(line[x], x, height, s);
-			}
-
-			// Procuramos o maior x para chamar de largura
-			if (x > maxWidth) {
-				maxWidth = x;
-			}
-
-			x = 0;
-		}
-	}
-
-	width = maxWidth;
-
-	fclose(file);
-
-	getStateId(s);
-};
-
 // Função que verifica se o estado é final
 // Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
 // mente, este não está preparado para níveis que possuam mais caixas que
@@ -257,8 +184,17 @@ int main(int argc, char *argv[]) {
 	// Criamos um ponteiro temporário que irá ser movido
 	State *s = malloc(sizeof(State));
 
+	// Ponteiro para o último estado principal é inicializado.
+	lastMainState = malloc(sizeof(State *));
+	*lastMainState = NULL;
+
+	// Ponteiro para a raiz da trie de Ids
+	mainId = malloc(sizeof(idTrie));
+	memset(mainId->idLeafs, 0, 10 * sizeof(idTrie *));
+
 	// Constroi o primeiro estado, sequencialmente
 	buildMap(root, argv[1]);
+	getStateId(root);
 
 	int moved = 0;
 	while (!(*solution)) {

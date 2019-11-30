@@ -28,6 +28,10 @@ typedef struct State {
 	// Quantidade de caixas encontradas
 	unsigned char boxes;
 
+	// Grid dimensions
+	unsigned int width;
+	unsigned int height;
+
 	// Quantidade de caixas no objetivo
 	unsigned char boxesOnGoals;
 

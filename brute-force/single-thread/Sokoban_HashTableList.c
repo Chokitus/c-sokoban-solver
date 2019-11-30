@@ -125,59 +125,6 @@ unsigned char getStateId(State *s) {
 	return 0;
 };
 
-// Função para construir o mapa
-void buildMap(struct State *s, char *level) {
-
-	// Inicializamos algumas das variáveis de State
-	s->boxes = 0;
-	s->boxesOnGoals = 0;
-	memset(s->posGoals, 0, 30);
-	memset(s->posBoxes, 0, 30);
-
-	// Apontamos cada um dos Ids para nulo.
-	memset(idList, 0, ID_HASH);
-
-	// Inicializamos o ponteiro para o último estado
-	last = (Node **)malloc(sizeof(void *));
-	(*last) = NULL;
-
-	// Abrimos o nível
-	char str[16] = "levels/";
-	strcat(str, level);
-	FILE *file = fopen(str, "r");
-
-	char line[20];
-
-	int x, maxWidth, height;
-	maxWidth = 0;
-	height = -1;
-
-	// Pegamos 20 caracteres de cada linha, até que a linha retorne nulo.
-	while (fgets(line, 20, file) != NULL) {
-		// Se a linha for 0 ou 10 (nova linha), estamos fora do mapa
-		if (line[0] != 0 && line[0] != 10) {
-			// Aumentamos a altura
-			height++;
-
-			// Pra cada caracter, colocamos o objeto no mapa.
-			for (x = 0; (int)line[x] != 0 && (int)line[x] != 10; x++) {
-				placeThis(line[x], x, height, s);
-			}
-
-			// Procuramos o maior x para chamar de largura
-			if (x > maxWidth) {
-				maxWidth = x;
-			}
-
-			x = 0;
-		}
-	}
-
-	fclose(file);
-
-	getStateId(s);
-};
-
 // Função que verifica se o estado é final
 // Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
 // mente, este não está preparado para níveis que possuam mais caixas que
@@ -262,8 +209,16 @@ int main(int argc, char *argv[]) {
 	root->state = (State *)malloc(sizeof(State));
 	root->nextState = NULL;
 
+	// Apontamos cada um dos Ids para nulo.
+	memset(idList, 0, ID_HASH);
+
+	// Inicializamos o ponteiro para o último estado
+	last = (Node **)malloc(sizeof(void *));
+	(*last) = NULL;
+
 	// Criamos o mapa
 	buildMap(root->state, argv[1]);
+	getStateId(root->state);
 
 	// Alocamos espaço para o estado que estará sujeito à ser movido
 	s = (State *)malloc(sizeof(State));

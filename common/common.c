@@ -254,3 +254,63 @@ void placeThis(char c, int x, int y, State *s) {
 		s->posPlayer = pos;
 	}
 }
+
+// Função para construir o mapa
+void buildMap(State *s, char *level) {
+
+	// Número de caixas, global
+	s->boxes = 0;
+
+	// Inicializamos o número de caixas em objetivos
+	s->boxesOnGoals = 0;
+
+	// Inicializamos a posição das caixas
+	memset(s->posBoxes, 0, 30);
+	memset(s->posGoals, 0, 30);
+
+	// Inicializamos o grid com 32, ou ' '
+	memset(s->grid, 32, 400);
+
+	// Inicializamos a ação com nulo, pois é como saberemos que voltamos até o
+	// começo do processo
+	s->lastAction = malloc(sizeof(ActionList));
+	s->lastAction->prevAction = NULL;
+	s->lastAction->action = 0;
+
+	// Abrimos o nível
+	char str[16] = "levels/";
+	strcat(str, level);
+	FILE *file = fopen(str, "r");
+
+	char line[20];
+
+	int x, maxWidth, height;
+	maxWidth = 0;
+	height = -1;
+
+	// Pegamos 20 caracteres de cada linha, até que a linha retorne nulo.
+	while (fgets(line, 20, file) != NULL) {
+		// Se a linha for 0 ou 10 (nova linha), estamos fora do mapa
+		if (line[0] != 0 && line[0] != 10) {
+			// Aumentamos a altura
+			height++;
+
+			// Pra cada caracter, colocamos o objeto no mapa.
+			for (x = 0; (int)line[x] != 0 && (int)line[x] != 10; x++) {
+				placeThis(line[x], x, height, s);
+			}
+
+			// Procuramos o maior x para chamar de largura
+			if (x > maxWidth) {
+				maxWidth = x;
+			}
+
+			x = 0;
+		}
+	}
+
+	fclose(file);
+
+	s->width = maxWidth;
+	s->height = height;
+};

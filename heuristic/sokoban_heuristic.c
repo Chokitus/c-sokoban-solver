@@ -170,56 +170,6 @@ int getHeuristic(State *s) {
 	return h;
 };
 
-void buildMap(struct State *s, char *level) {
-	s->boxes = 0;
-	s->boxesOnGoals = 0;
-
-	memset(s->posGoals, 0, 30);
-	memset(s->posBoxes, 0, 30);
-	memset(idList, 0, ID_HASH);
-
-	last = (Node **)malloc(sizeof(void *));
-	(*last) = NULL;
-
-	// Abrimos o níve l
-	char str[16] = "levels/";
-
-	strcat(str, level);
-	// FILE *file = fopen("levels/level_00","r");
-	FILE *file = fopen(str, "r");
-
-	char line[20];
-
-	int x, maxWidth, height;
-	maxWidth = 0;
-	height = -1;
-
-	while (fgets(line, 20, file) != NULL) {
-		if (line[0] != 0 && line[0] != 10) {
-
-			height++;
-
-			for (x = 0; (int)line[x] != 0 && (int)line[x] != 10; x++) {
-				printf("%c ", line[x]);
-				placeThis(line[x], x, height, s);
-			}
-			printf(" %d %d\n", height * 20, 0);
-			if (x > maxWidth) {
-				maxWidth = x;
-			}
-			x = 0;
-		}
-	}
-
-	fclose(file);
-
-	getHeuristic(s);
-	getStateId(s);
-
-	printf("\nO mapa é %d x %d\n", maxWidth, height + 1);
-	printf("O mapa possui %d caixas.\n", s->boxes);
-};
-
 unsigned char isFinal(State *s) {
 	if (s->boxes == s->boxesOnGoals) {
 		return 1;
@@ -290,10 +240,19 @@ int main(int argc, char *argv[]) {
 	root->state = (State *)malloc(sizeof(State));
 	root->nextState = NULL;
 
+	// Apontamos cada um dos Ids para nulo.
+	memset(idList, 0, ID_HASH);
+
+	// Inicializamos o ponteiro para o último estado
+	last = (Node **)malloc(sizeof(void *));
+	(*last) = NULL;
+
 	numberOfNodes = 1;
 	activeStates = 1;
 
 	buildMap(root->state, argv[1]);
+	getStateId(root->state);
+	getHeuristic(root->state);
 
 	s = (State *)malloc(sizeof(State));
 

@@ -18,9 +18,6 @@ typedef struct idTrie {
 // Array para o espalhamento dos IDs.
 idTrie *mainId;
 
-unsigned int width = 0;
-unsigned int height = 0;
-
 State **lastMainState;
 
 idTrie *new_trie() {
@@ -115,63 +112,6 @@ unsigned char getStateId(State *s) {
 
 	return newId;
 }
-
-void buildMap(struct State *s, char *level) {
-	s->boxes = 0;
-	s->boxesOnGoals = 0;
-
-	memset(s->posGoals, 0, 30);
-	memset(s->posBoxes, 0, 30);
-	memset(s->grid, 32, 400);
-
-	lastMainState = malloc(sizeof(State *));
-	*lastMainState = NULL;
-
-	mainId = malloc(sizeof(idTrie));
-	memset(mainId->idLeafs, 0, 10 * sizeof(idTrie *));
-
-	s->lastAction = malloc(sizeof(ActionList));
-	s->lastAction->prevAction = NULL;
-	s->lastAction->action = 0;
-
-	// Abrimos o níve l
-	char str[16] = "levels/";
-
-	strcat(str, level);
-	FILE *file = fopen(str, "r");
-
-	char line[20];
-
-	int x, maxWidth;
-	maxWidth = 0;
-	height = -1;
-
-	while (fgets(line, 20, file) != NULL) {
-		// Se a linha for 0 ou 10 (nova linha), estamos fora do mapa
-		if (line[0] != 0 && line[0] != 10) {
-			// Aumentamos a altura
-			height++;
-
-			// Pra cada caracter, colocamos o objeto no mapa.
-			for (x = 0; (int)line[x] != 0 && (int)line[x] != 10; x++) {
-				placeThis(line[x], x, height, s);
-			}
-
-			// Procuramos o maior x para chamar de largura
-			if (x > maxWidth) {
-				maxWidth = x;
-			}
-
-			x = 0;
-		}
-	}
-
-	width = maxWidth;
-
-	fclose(file);
-
-	getStateId(s);
-};
 
 // Função que verifica se o estado é final
 // Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
@@ -283,13 +223,19 @@ int main(int argc, char *argv[]) {
 	root->nextState = NULL;
 
 	// Criamos um ponteiro temporário que irá ser movido
-	State *s;
+	State *s = malloc(sizeof(State));
+
+	// Ponteiro para o último estado principal é inicializado.
+	lastMainState = malloc(sizeof(State *));
+	*lastMainState = NULL;
+
+	// Ponteiro para a raiz da trie de Ids
+	mainId = malloc(sizeof(idTrie));
+	memset(mainId->idLeafs, 0, 10 * sizeof(idTrie *));
 
 	// Constroi o primeiro estado, sequencialmente
 	buildMap(root, argv[1]);
-
-	// Primeiro thread constroi a lista inicial de estados, de forma sequencial.
-	s = malloc(sizeof(State));
+	getStateId(root);
 
 	// Quantidade de threads solicitados
 	int threads = strtol(argv[2], NULL, 10);
