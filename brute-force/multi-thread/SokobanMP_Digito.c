@@ -1,3 +1,4 @@
+#include "../../common/sort.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,8 +21,8 @@ enum Direcoes{
 typedef struct State{
 	//Todas as posições se baseiam no fato que não há mapa com mais de 19 de largura/altura. Portanto, a posição é 20*y+x;
 	unsigned short posPlayer;
-	unsigned char posBoxes[30];
-	unsigned char posGoals[30];
+	unsigned short posBoxes[30];
+	unsigned short posGoals[30];
 	unsigned char grid[400];
 	//Quantidade de caixas encontradas
 	unsigned char boxes;
@@ -56,11 +57,11 @@ void printPath(State *s){
 
 	//Criamos mais que o espaço necessário para qualquer solução
 	unsigned char actions[10000];
-	memset(actions, 0, 10000); 
+	memset(actions, 0, 10000);
 
 	int i;
 	//Enquanto não chegamos ao final (que é nulo)
-	for(i = 0; tempAction; i++){		
+	for(i = 0; tempAction; i++){
 		actions[i] = tempAction->action;
 		tempAction = tempAction->prevAction;
 	}
@@ -88,7 +89,7 @@ unsigned char findId(State* s){
 
 	//Para cada caixa:
 	for(short i = 0; i < s->boxes; i++){
-		if(s->posBoxes[i] > 100){	
+		if(s->posBoxes[i] > 100){
 #			pragma critical (part1)
 			{
 				if(!tempTrie->idLeafs[s->posBoxes[i] / 100]){
@@ -100,16 +101,16 @@ unsigned char findId(State* s){
 		}
 		tempValue = (s->posBoxes[i] / 10);
 #		pragma critical (part2)
-		{		
+		{
 			if(!tempTrie->idLeafs[tempValue % 10]){
 				tempTrie->idLeafs[tempValue % 10] = new_trie();
 				found = 1;
 			}
 			tempTrie = tempTrie->idLeafs[tempValue % 10];
 		}
-		
+
 #		pragma critical (part3)
-		{			
+		{
 			if(!tempTrie->idLeafs[s->posBoxes[i] - tempValue*10]){
 				tempTrie->idLeafs[s->posBoxes[i] - tempValue*10] = new_trie();
 				found = 1;
@@ -118,8 +119,8 @@ unsigned char findId(State* s){
 		}
 	}
 #	pragma critical (part4)
-	{		
-		if(s->posPlayer > 100){		
+	{
+		if(s->posPlayer > 100){
 			if(!tempTrie->idLeafs[s->posPlayer / 100]){
 				tempTrie->idLeafs[s->posPlayer / 100] = new_trie();
 				found = 1;
@@ -128,57 +129,24 @@ unsigned char findId(State* s){
 		}
 		tempValue = (s->posPlayer / 10);
 	}
-	
+
 #	pragma critical (part5)
-	{	
+	{
 		if(!tempTrie->idLeafs[tempValue % 10]){
 			tempTrie->idLeafs[tempValue % 10] = new_trie();
 			found = 1;
 		}
 		tempTrie = tempTrie->idLeafs[tempValue % 10];
 	}
-	
+
 #	pragma critical (part6)
-	{	
+	{
 		if(!tempTrie->idLeafs[s->posPlayer - tempValue*10]){
 			tempTrie->idLeafs[s->posPlayer - tempValue*10] = new_trie();
 			found = 1;
 		}
 	}
 	return found;
-}
-
-//Funções para o quicksort. Foram pegas diretamente de https://www.geeksforgeeks.org/quick-sort/
-
-void swap(unsigned char* a, unsigned char* b){
-	int t = *a;
-	*a = *b;
-	*b = t;
-}
-
-int partition (unsigned char arr[], int low, int high){
-	int pivot = arr[high];
-	int i = (low - 1);
-
-	for (int j = low; j <= high- 1; j++)
-	{
-		if (arr[j] <= pivot)
-		{
-			i++;
-			swap(&arr[i], &arr[j]);
-		}
-	}
-	swap(&arr[i + 1], &arr[high]);
-	return (i + 1);
-}
-
-void quickSort(unsigned char arr[], int low, int high){
-	if (low < high){
-		int pi = partition(arr, low, high);
-
-		quickSort(arr, low, pi - 1);
-		quickSort(arr, pi + 1, high);
-	}
 }
 
 //-------------------------------------------------------------------
@@ -201,7 +169,7 @@ void printGrid(State *s){
 //Função de Hash para pegar o ID do Estado
 unsigned char getStateId(State *s){
 	//Fazemos um sort pois a ordem das caixas não pode importar
-	quickSort(s->posBoxes, 0, s->boxes - 1);   
+	quickSort(s->posBoxes, 0, s->boxes - 1);
 
 	/*
 		Procuramos o ID na trie. Se estiver, retornamos verdadeiro, se não estiver
@@ -210,7 +178,7 @@ unsigned char getStateId(State *s){
 
 	unsigned char newId;
 	newId = findId(s);
-	
+
 	return newId;
 }
 
@@ -294,7 +262,7 @@ void buildMap(struct State *s, char *level){
 
 	strcat(str, level);
 	FILE *file = fopen(str,"r");
-	
+
 	char line[20];
 
 	int x, maxWidth;
@@ -409,12 +377,12 @@ char movePlayer(struct State *s, int dir){
 	//dado que cada linha possui 20 colunas, "andar para cima" recua 20 colunas, por isso o movingParam é -20.
 	//A mesma lógica se aplica para os outros
 
-	tempPos = s->posPlayer + movingParam;   
+	tempPos = s->posPlayer + movingParam;
 
 	if(checkWallsAt(s, tempPos)){
 		//Tem uma parede.
 		return 0;
-	}   
+	}
 
 	if(s->grid[tempPos] == '$' || s->grid[tempPos] == '*'){
 		//Tem uma caixa na direção
@@ -427,7 +395,7 @@ char movePlayer(struct State *s, int dir){
 		//Deixa a letra maiuscula
 		c -= 32;
 		box = 1;
-	}   
+	}
 
 	//Efetiva o movimento
 	if(box != 0){
@@ -458,7 +426,7 @@ char movePlayer(struct State *s, int dir){
 				s->posBoxes[i] += movingParam;
 			}
 		}
-	}   
+	}
 
 	if(s->grid[s->posPlayer] == '+'){
 		//Sokoban tava em cima de um alvo
@@ -467,7 +435,7 @@ char movePlayer(struct State *s, int dir){
 	else{
 		//Sokoban não estava sobre nada
 		s->grid[s->posPlayer] = 32;
-	}	
+	}
 	if(s->grid[tempPos] == '.'){
 		//Sokoban está indo na direção de um alvo
 		s->grid[tempPos] = '+';
@@ -476,7 +444,7 @@ char movePlayer(struct State *s, int dir){
 		//Não havia nada sobre a posição de destino
 		s->grid[tempPos] = '@';
 	}
-	
+
 	s->posPlayer = tempPos;
 
 	//Verifica se o Id é único e claro, qual seu valor.
@@ -485,7 +453,7 @@ char movePlayer(struct State *s, int dir){
 		return 0;
 	}
 
-	addPath(&c, s);   
+	addPath(&c, s);
 
 	//Retorna o efeito
 	return c;
@@ -553,7 +521,7 @@ void popState(State **from, State **to){
 
 	//Limpamos o próximo estado no thread, de forma que este não esteja conectado
 	//com a lista principal.
-	(*to)->nextState = NULL;	
+	(*to)->nextState = NULL;
 }
 
 //Fazemos merge entre as duas listas, conectando o final da main com o começo da thread
@@ -604,16 +572,16 @@ int main(int argc, char* argv[]){
    s = malloc(sizeof(State));
 
 	//Quantidade de threads solicitados
-	int threads = strtol(argv[2], NULL, 10);   
+	int threads = strtol(argv[2], NULL, 10);
 
 	//Pediremos que main faça NUM_MAIN_STATES estados para cada thread
 	unsigned int numStates = NUM_MAIN_STATES * threads;
-   
+
 	while(mainStates < numStates){
 		for(int i = 0; i < 4; i++){
 			//Pra cada direção, nós copiamos o estado inicial
 			copyState(root, s);
-			if(movePlayer(s, i) != 0){  
+			if(movePlayer(s, i) != 0){
 				/*movePlayer retorna 0 se não foi possível mover, seja por uma caixa sendo empurrada numa parede,
 				seja por estarmos andando de cara na parede*/
 				mainStates++;
@@ -633,14 +601,14 @@ int main(int argc, char* argv[]){
 			}
 		}
 		//Movemos root, colocando root como próximo estado
-		popState(&root, &root);   
+		popState(&root, &root);
 	}
    //Chegando aqui, temos uma lista ligada à root com n<=4 estados.
    /*
       A estratégia aqui é: criar n threads, e sequencialmente cada um pega um estado da lista para si.
       Abriremos estes estados, agora paralelamente, em cada thread, criando uma lista ligada parcial.
       Cada thread procedirá para criar SIZE_THREAD_LIST estados, e então conectá-lo á lista principal.
-   */   
+   */
 
   	//root, lastMainState e solution serão compartilhados, todo resto é declarado internamente e portanto,
 	//são privados.
@@ -656,18 +624,18 @@ int main(int argc, char* argv[]){
 		unsigned char popMainList = 1;
 
       //Quantidade de estados ativos no thread
-      unsigned int activeThreadStates = 0;      
+      unsigned int activeThreadStates = 0;
 
       //Criamos espaço para o estado temporário móvel
-      s = malloc(sizeof(State));      
+      s = malloc(sizeof(State));
 
-      //Criamos espaço para o ponteiro para o último estado presente neste thread 
+      //Criamos espaço para o ponteiro para o último estado presente neste thread
 		State** lastThreadState;
 		lastThreadState = malloc(sizeof(State*));
 		(*lastThreadState) = NULL;
-		
+
 		//Enquanto não foi encontrado uma solução por nenhum thread
-      while(!(*solution)){  
+      while(!(*solution)){
 
          //Se a variável de condição foi 1, devemos pegar um estado da lista principal.
 			//Isto só acontecerá caso chegamos no limite estipulado para cada thread, ou
@@ -675,16 +643,16 @@ int main(int argc, char* argv[]){
          if(popMainList){
 				//Esta região deve ser crítica, pois estamos mexendo com a lista principal (e portante shared)
 #				pragma omp critical(popMerge)
-            popState(&root, &threadRoot);    
+            popState(&root, &threadRoot);
 
 				//Limpamos o popMainList
-				popMainList = 0;        
+				popMainList = 0;
          }
 
          //Pra cada direção, iremos mover o estado, e depois adicionar na nossa lista temporária.
          for(int i = 0; i < 4 && !(*solution); i++){
             copyState(threadRoot, s);
-            if(movePlayer(s, i) != 0){		
+            if(movePlayer(s, i) != 0){
                //Entrou aqui, quer dizer que ele conseguiu se mover, ou seja, era um movimento válido.
                activeThreadStates++;
                if(insertState(threadRoot, s, lastThreadState)){
