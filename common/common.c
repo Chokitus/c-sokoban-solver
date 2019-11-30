@@ -203,3 +203,54 @@ char movePlayer(State *s, int dir, unsigned char (*getStateId)(State *)) {
 	// Retorna o efeito
 	return c;
 };
+
+void placeThis(char c, int x, int y, State *s) {
+	if (c == 32 || (c != '@' && c != '$' && c != '.' && c != '*' && c != '+' &&
+	                c != '#')) {
+		// Espaço vazio
+		return;
+	}
+
+	// Como o mapa é considerado como um quadrado de 19 por 19, cada posição
+	// pode ser linearizada como x+20*y. Assim, a posição (17,4) = 17 + 80 = 97
+	int pos = x + 20 * y;
+
+	// Colocamos o objeto no grid
+	s->grid[pos] = c;
+
+	if (c == '@') {
+		//É o player.
+		s->posPlayer = pos;
+		return;
+	}
+	if (c == '$') {
+		//É uma caixa.
+		s->posBoxes[s->boxes++] = pos;
+		return;
+	}
+
+	int i = 0;
+	while (s->posGoals[i] != 0) {
+		++i;
+	}
+
+	if (c == '.') {
+		//É um alvo.
+		s->posGoals[i] = pos;
+		return;
+	}
+
+	if (c == '*') {
+		//É um alvo e uma caixa.
+		s->posGoals[i] = pos;
+		s->posBoxes[s->boxes++] = pos;
+		s->boxesOnGoals++;
+		return;
+	}
+
+	if (c == '+') {
+		//É o player e um alvo.
+		s->posGoals[i] = pos;
+		s->posPlayer = pos;
+	}
+}

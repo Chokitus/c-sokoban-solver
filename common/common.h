@@ -9,4 +9,7 @@ extern void printPath(State *s);
 // Função que usaremos intensivamente para mover o sokoban
 extern char movePlayer(State *s, int dir, unsigned char (*getStateId)(State *));
 
+// Função para construir o grid
+extern void placeThis(char c, int x, int y, State *s);
+
 #endif

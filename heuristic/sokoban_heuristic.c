@@ -170,53 +170,6 @@ int getHeuristic(State *s) {
 	return h;
 };
 
-void placeThis(char c, int x, int y, struct State *s) {
-	if ((int)c == 32) {
-		// Espaço vazio
-		return;
-	}
-
-	int pos = x + 20 * y;
-
-	s->grid[pos] = c;
-
-	if (c == '@') {
-		//É o player.
-		s->posPlayer = pos;
-		return;
-	}
-	if (c == '$') {
-		//É uma caixa.
-		s->posBoxes[s->boxes++] = pos;
-		return;
-	}
-
-	int i = 0;
-	while (s->posGoals[i] != 0) {
-		++i;
-	}
-
-	if (c == '.') {
-		//É um alvo.
-		s->posGoals[i] = pos;
-		return;
-	}
-
-	if (c == '*') {
-		//É um alvo e uma caixa.
-		s->posGoals[i] = pos;
-		s->posBoxes[s->boxes++] = pos;
-		s->boxesOnGoals++;
-		return;
-	}
-
-	if (c == '+') {
-		//É o player e um alvo.
-		s->posGoals[i] = pos;
-		s->posPlayer = pos;
-	}
-}
-
 void buildMap(struct State *s, char *level) {
 	s->boxes = 0;
 	s->boxesOnGoals = 0;

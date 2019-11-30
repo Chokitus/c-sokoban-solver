@@ -14,9 +14,6 @@
 // Quantos estados por thread a main deve criar antes de seguir
 #define NUM_MAIN_STATES 1000
 
-// Número de caixas no nível
-unsigned char boxes;
-
 // Trie para os ids.
 typedef struct idTrie {
 	struct idTrie *idLeafs[10];
@@ -59,7 +56,7 @@ unsigned char findId(State *s) {
 	*/
 
 	// Para cada caixa:
-	for (short i = 0; i < boxes; i++) {
+	for (short i = 0; i < s->boxes; i++) {
 		if (s->posBoxes[i] > 100) {
 			omp_set_lock(lockLevels[visitedLevel]);
 
@@ -140,25 +137,10 @@ unsigned char findId(State *s) {
 
 //---------------------------------------------------------------------------------------------
 
-// Função printar o grid: DEBUG
-void printGrid(State *s) {
-	for (int h = 0; h < (height + 1) * 20; h += 20) {
-		for (int w = 0; w < width; w++) {
-			if (s->grid[w + h] == 32) {
-				printf("  ");
-			} else {
-				printf("%c ", s->grid[w + h]);
-			}
-		}
-		printf("\n");
-	}
-	printf("\n");
-}
-
 // Função que retorna se o estado é único ou não
 unsigned char getStateId(State *s) {
 	// Fazemos um sort pois a ordem das caixas não pode importar
-	quickSort(s->posBoxes, 0, boxes - 1);
+	quickSort(s->posBoxes, 0, s->boxes - 1);
 
 	/*
 	    Procuramos o ID na trie. Se estiver, retornamos verdadeiro, se não
@@ -171,54 +153,10 @@ unsigned char getStateId(State *s) {
 	return newId;
 }
 
-// Função para construir o grid
-void placeThis(char c, int x, int y, struct State *s) {
-	if (c == 32 || (c != '@' && c != '$' && c != '.' && c != '*' && c != '+' &&
-	                c != '#')) {
-		// Espaço vazio
-		return;
-	}
-
-	// Como o mapa é considerado como um quadrado de 19 por 19, cada posição
-	// pode ser linearizada como x+20*y. Assim, a posição (17,4) = 17 + 80 = 97
-	int pos = x + 20 * y;
-
-	// Colocamos no grid o objeto
-	s->grid[pos] = c;
-
-	if (c == '@') {
-		//É o player.
-		s->posPlayer = pos;
-		return;
-	}
-	if (c == '$') {
-		//É uma caixa.
-		s->posBoxes[boxes++] = pos;
-		return;
-	}
-
-	if (c == '.') {
-		//É um alvo.
-		return;
-	}
-
-	if (c == '*') {
-		//É um alvo e uma caixa.
-		s->posBoxes[boxes++] = pos;
-		s->boxesOnGoals++;
-		return;
-	}
-
-	if (c == '+') {
-		//É o player e um alvo.
-		s->posPlayer = pos;
-	}
-}
-
 // Função para a construção do mapa
 void buildMap(struct State *s, char *level) {
 	// Número de caixas, global
-	boxes = 0;
+	s->boxes = 0;
 
 	// Inicializamos o número de caixas em objetivos
 	s->boxesOnGoals = 0;
@@ -278,8 +216,8 @@ void buildMap(struct State *s, char *level) {
 	}
 
 	// Criamos 3*(número_de_caixas+player) locks
-	lockLevels = malloc((boxes + 1) * 3 * sizeof(omp_lock_t *));
-	for (int levels = 0; levels < (boxes + 1) * 3; levels++) {
+	lockLevels = malloc((s->boxes + 1) * 3 * sizeof(omp_lock_t *));
+	for (int levels = 0; levels < (s->boxes + 1) * 3; levels++) {
 		lockLevels[levels] = malloc(sizeof(omp_lock_t *));
 		omp_init_lock(lockLevels[levels]);
 	}
@@ -296,7 +234,7 @@ void buildMap(struct State *s, char *level) {
 // mente, este não está preparado para níveis que possuam mais caixas que
 // objetivos
 unsigned char isFinal(State *s) {
-	if (boxes == s->boxesOnGoals) {
+	if (s->boxes == s->boxesOnGoals) {
 		return 1;
 	}
 	return 0;

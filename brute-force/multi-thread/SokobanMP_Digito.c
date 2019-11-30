@@ -99,20 +99,6 @@ unsigned char findId(State *s) {
 }
 
 //-------------------------------------------------------------------
-// Função printar o grid: DEBUG
-void printGrid(State *s) {
-	for (int h = 0; h < (height + 1) * 20; h += 20) {
-		for (int w = 0; w < width; w++) {
-			if (s->grid[w + h] == 32) {
-				printf("  ");
-			} else {
-				printf("%c ", s->grid[w + h]);
-			}
-		}
-		printf("\n");
-	}
-	printf("\n");
-}
 
 // Função de Hash para pegar o ID do Estado
 unsigned char getStateId(State *s) {
@@ -128,54 +114,6 @@ unsigned char getStateId(State *s) {
 	newId = findId(s);
 
 	return newId;
-}
-
-void placeThis(char c, int x, int y, struct State *s) {
-	if (c == 32 || (c != '@' && c != '$' && c != '.' && c != '*' && c != '+' &&
-	                c != '#')) {
-		// Espaço vazio
-		return;
-	}
-
-	int pos = x + 20 * y;
-
-	s->grid[pos] = c;
-
-	if (c == '@') {
-		//É o player.
-		s->posPlayer = pos;
-		return;
-	}
-	if (c == '$') {
-		//É uma caixa.
-		s->posBoxes[s->boxes++] = pos;
-		return;
-	}
-
-	int i = 0;
-	while (s->posGoals[i] != 0) {
-		++i;
-	}
-
-	if (c == '.') {
-		//É um alvo.
-		s->posGoals[i] = pos;
-		return;
-	}
-
-	if (c == '*') {
-		//É um alvo e uma caixa.
-		s->posGoals[i] = pos;
-		s->posBoxes[s->boxes++] = pos;
-		s->boxesOnGoals++;
-		return;
-	}
-
-	if (c == '+') {
-		//É o player e um alvo.
-		s->posGoals[i] = pos;
-		s->posPlayer = pos;
-	}
 }
 
 void buildMap(struct State *s, char *level) {
