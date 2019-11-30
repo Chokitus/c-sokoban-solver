@@ -1,4 +1,6 @@
 #include "../../common/sort.h"
+#include "../../common/structures.h"
+#include "../../common/common.h"
 #include "../../common/util.h"
 #include <omp.h>
 #include <stdio.h>
@@ -12,28 +14,6 @@
 // Quantos estados por thread a main deve criar antes de seguir
 #define NUM_MAIN_STATES 1000
 
-// Estado que estaremos analisando
-typedef struct State {
-	// Todas as posições se baseiam no fato que não há mapa com mais de 19 de
-	// largura/altura. Portanto, a posição é 20*y+x; Posição do Sokoban
-	unsigned short posPlayer;
-
-	// Posição das caixas
-	unsigned short posBoxes[30];
-
-	// Mapa, usado para facilitar no movimento.
-	unsigned char grid[400];
-
-	// Quantidade de caixas no objetivo
-	unsigned char boxesOnGoals;
-
-	// Caminho para a solução
-	struct actionList *lastAction;
-
-	// Próximo Estado, considerando que isto também é uma lista ligada
-	struct State *nextState;
-} State;
-
 // Número de caixas no nível
 unsigned char boxes;
 
@@ -41,12 +21,6 @@ unsigned char boxes;
 typedef struct idTrie {
 	struct idTrie *idLeafs[10];
 } idTrie;
-
-// Ligada ligada para as ações
-typedef struct actionList {
-	unsigned char action;
-	struct actionList *prevAction;
-} actionList;
 
 // Locks a serem usados
 omp_lock_t **lockLevels;
@@ -61,29 +35,6 @@ unsigned int height = 0;
 // Ponteiro para o último estado da lista principal.
 State **lastMainState;
 
-// Função que imprime o caminho para a solução
-void printPath(State *s) {
-	// Apontamos para a última ação tomada
-	actionList *tempAction = s->lastAction;
-
-	// Criamos mais que o espaço necessário para qualquer solução
-	unsigned char actions[10000];
-	memset(actions, 0, 10000);
-
-	int i;
-	// Enquanto não chegamos ao final (que é nulo)
-	for (i = 0; tempAction; i++) {
-		actions[i] = tempAction->action;
-		tempAction = tempAction->prevAction;
-	}
-	i--;
-
-	// Printamos em ordem reversa
-	for (; i >= 0; i--) {
-		printf("%c", actions[i]);
-	}
-	printf("\n");
-}
 // Cria um novo nó na trie
 idTrie *new_trie() {
 	idTrie *returnTrie = malloc(sizeof(idTrie));
@@ -220,21 +171,6 @@ unsigned char getStateId(State *s) {
 	return newId;
 }
 
-// Função para adicionar a ação ao caminho
-void addPath(char *c, State *s) {
-	// Criamos uma nova ação
-	actionList *nextAction = malloc(sizeof(actionList));
-
-	// Esta ação recebe a ação causada pelo movePlayer
-	nextAction->action = *c;
-
-	// E aponta para a ação anterior
-	nextAction->prevAction = s->lastAction;
-
-	// O estado agora aponta para a sua ação geradora.
-	s->lastAction = nextAction;
-};
-
 // Função para construir o grid
 void placeThis(char c, int x, int y, struct State *s) {
 	if (c == 32 || (c != '@' && c != '$' && c != '.' && c != '*' && c != '+' &&
@@ -303,7 +239,7 @@ void buildMap(struct State *s, char *level) {
 
 	// Inicializamos a ação com nulo, pois é como saberemos que voltamos até o
 	// começo do processo
-	s->lastAction = malloc(sizeof(actionList));
+	s->lastAction = malloc(sizeof(ActionList));
 	s->lastAction->prevAction = NULL;
 	s->lastAction->action = 0;
 
@@ -353,167 +289,6 @@ void buildMap(struct State *s, char *level) {
 	fclose(file);
 
 	getStateId(s);
-};
-
-// Função simples que retorna se a posição pos é uma parede
-int checkWallsAt(State *s, unsigned int pos) {
-	if (s->grid[pos] == '#') {
-		return 1;
-	}
-	return 0;
-};
-
-// Função que verifica se prendemos a caixa
-/*
-     #
-    #$
-    Procuramos "cantos" como este. Se a caixa está num canto, e este canto não é
-   um objetivo, travamos a caixa Esta é uma posição exemplo que não seria
-   explorada:
-    #######
-    #   @$# <- Note que a caixa não poderá ser movida
-    #     #
-    #. #  #
-    #. $  #
-    #.$$  #
-    #.#  @#
-    #######
-*/
-unsigned char boxTrapped(State *s, int pos) {
-	int wallsUp = s->grid[pos - 20] == '#',
-	    wallsDown = s->grid[pos + 20] == '#',
-	    wallsLeft = s->grid[pos - 1] == '#',
-	    wallsRight = s->grid[pos + 1] == '#';
-	if (s->grid[pos] == '.' || s->grid[pos] == '*') {
-		return 0;
-	}
-	if (wallsUp && wallsLeft) {
-		return 1;
-	}
-	if (wallsUp && wallsRight) {
-		return 1;
-	}
-	if (wallsDown && wallsLeft) {
-		return 1;
-	}
-	if (wallsDown && wallsRight) {
-		return 1;
-	}
-
-	return 0;
-}
-
-// Função que usaremos intensivamente para mover o sokoban
-char movePlayer(struct State *s, int dir) {
-	// dir == 0 -> direita
-	// dir == 1 -> esquerda
-	// dir == 2 -> cima
-	// dir == 3 -> baixo
-	char c;
-	unsigned char box = 0;
-	int tempPos;
-	int movingParam;
-	switch (dir) {
-	case direita:
-		movingParam = 1;
-		c = 'r';
-		break;
-	case esquerda:
-		movingParam = -1;
-		c = 'l';
-		break;
-	case cima:
-		movingParam = -20;
-		c = 'u';
-		break;
-	case baixo:
-		movingParam = 20;
-		c = 'd';
-		break;
-	}
-
-	// Usamos o trecho de código para obter o parametro de movimento, assim como
-	// o caracter. Como parâmetro de movimento, queremos transformar a visao 1D
-	// do array no movimento 2D do personagem, ou seja, dado que cada linha
-	// possui 20 colunas, "andar para cima" recua 20 colunas, por isso o
-	// movingParam é -20. A mesma lógica se aplica para os outros
-
-	tempPos = s->posPlayer + movingParam;
-
-	if (checkWallsAt(s, tempPos)) {
-		// Tem uma parede.
-		return 0;
-	}
-
-	if (s->grid[tempPos] == '$' || s->grid[tempPos] == '*') {
-		// Tem uma caixa na direção
-		if (checkWallsAt(s, tempPos + movingParam) == 1 ||
-		    s->grid[tempPos + movingParam] == '$' ||
-		    s->grid[tempPos + movingParam] == '*') {
-			// Tem uma parede ou caixa após a caixa.
-			return 0;
-		};
-		// Deixa a letra maiuscula
-		c -= 32;
-		box = 1;
-	}
-
-	// Efetiva o movimento
-	if (box != 0) {
-		if (boxTrapped(s, tempPos + movingParam)) {
-			return 0;
-		}
-		// Empurrou uma caixa
-		if (s->grid[tempPos] == '*') {
-			// A caixa estava sobre um alvo
-			s->grid[tempPos] = '.';
-			s->boxesOnGoals--;
-		} else {
-			// Não estava sobre nada
-			s->grid[tempPos] = 32;
-		}
-		if (s->grid[tempPos + movingParam] == '.') {
-			// A posição de destino da caixa é alvo
-			s->grid[tempPos + movingParam] = '*';
-			s->boxesOnGoals++;
-		} else {
-			s->grid[tempPos + movingParam] = '$';
-		}
-		// Move a caixa nas posições
-		for (int i = 0; i < 30 && s->posBoxes[i] != 0; i++) {
-			if (s->posBoxes[i] == tempPos) {
-				s->posBoxes[i] += movingParam;
-			}
-		}
-	}
-
-	if (s->grid[s->posPlayer] == '+') {
-		// Sokoban tava em cima de um alvo
-		s->grid[s->posPlayer] = '.';
-	} else {
-		// Sokoban não estava sobre nada
-		s->grid[s->posPlayer] = 32;
-	}
-	if (s->grid[tempPos] == '.') {
-		// Sokoban está indo na direção de um alvo
-		s->grid[tempPos] = '+';
-	} else {
-		// Não havia nada sobre a posição de destino
-		s->grid[tempPos] = '@';
-	}
-
-	s->posPlayer = tempPos;
-
-	// Verifica se o Id é único.
-	if (!getStateId(s)) {
-		return 0;
-	}
-
-	// Adiciona o caminho
-	addPath(&c, s);
-
-	// Retorna o efeito
-	return c;
 };
 
 // Função que verifica se o estado é final
@@ -644,7 +419,7 @@ int main(int argc, char *argv[]) {
 		for (int i = 0; i < 4; i++) {
 			// Pra cada direção, nós copiamos o estado inicial
 			copyState(root, s);
-			if (movePlayer(s, i) != 0) {
+			if (movePlayer(s, i, getStateId) != 0) {
 				/*movePlayer retorna 0 se não foi possível mover, seja por uma
 				caixa sendo empurrada numa parede,
 				seja por estarmos andando de cara na parede*/
@@ -725,7 +500,7 @@ int main(int argc, char *argv[]) {
 			// nossa lista temporária.
 			for (int i = 0; i < 4 && !(*solution); i++) {
 				copyState(threadRoot, s);
-				if (movePlayer(s, i) != 0) {
+				if (movePlayer(s, i, getStateId) != 0) {
 					// Entrou aqui, quer dizer que ele conseguiu se mover, ou
 					// seja, era um movimento válido.
 					activeThreadStates++;
