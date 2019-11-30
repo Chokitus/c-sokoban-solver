@@ -1,7 +1,7 @@
-#include "../../common/sort.h"
-#include "../../common/structures.h"
-#include "../../common/common.h"
-#include "../../common/util.h"
+#include "../common/sort.h"
+#include "../common/structures.h"
+#include "../common/common.h"
+#include "../common/util.h"
 #include <omp.h>
 #include <semaphore.h>
 #include <stdio.h>
