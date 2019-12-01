@@ -35,4 +35,13 @@ extern unsigned char insertState(Node **root, Node **last, State *s);
 // Função que devolve, em rootState, o primeiro estado na lista cuja raiz é root
 extern State *popState(Node **root);
 
+/**
+ * Checks if a state has an ID on the hash table.
+ * @param idList ?
+ * @param s State for which it will search the id
+ * @return 1 if ID is found. 0 otherwise
+ * @author marcos.romero
+ */
+extern unsigned char checkIfStateIdExists(VisitedId *idList[ID_HASH], State *s);
+
 #endif

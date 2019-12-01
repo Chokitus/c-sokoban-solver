@@ -1,6 +1,6 @@
+#include "../common/common.h"
 #include "../common/sort.h"
 #include "../common/structures.h"
-#include "../common/common.h"
 #include "../common/util.h"
 #include "hash-table.h"
 #include <stdio.h>
@@ -9,38 +9,8 @@
 
 // Array para o espalhamento dos IDs.
 VisitedId *idList[ID_HASH];
-Node **last;
 
-//-------------------------------------------------------------------
-
-// Função de Hash para pegar o ID do Estado
-unsigned char getStateId(State *s) {
-	// Fazemos um sort pois a ordem das caixas não pode importar
-	quickSort(s->posBoxes, 0, s->boxes - 1);
-
-	unsigned char idHash[s->boxes * 4 + 5];
-	unsigned char buffer[5];
-	memset(idHash, 0, s->boxes * 5 + 5);
-
-	unsigned long long h = getIdIndex(s);
-	for (int i = 0; i < s->boxes; i++) {
-		sprintf(buffer, "%hu", s->posBoxes[i]);
-		strcat(idHash, buffer);
-		strcat(idHash, " ");
-	}
-	sprintf(buffer, "%hu", s->posPlayer);
-	strcat(idHash, buffer);
-
-	// Procuramos o ID na lista. Se estiver, retornamos verdadeiro
-	if (findId(idList, idHash, h) == 1) {
-		return 1;
-	}
-
-	// Sendo id único, inserimos o mesmo
-	insertId(idList, idHash, h);
-
-	return 0;
-}
+unsigned char getStateId(State *s) { return checkIfStateIdExists(idList, s); }
 
 int getHeuristic(State *s) {
 	int min, x, y, xGoal, yGoal, dist, h = 0;
@@ -62,7 +32,7 @@ int getHeuristic(State *s) {
 			yGoal = s->posGoals[j] / 20;
 
 			//"Distância" na forma (x-x')+(y-y'). Entre aspas pois o correto
-			//seria a raiz do mesmo, mas isto não importa para nós
+			// seria a raiz do mesmo, mas isto não importa para nós
 			dist = (x - xGoal) * (x - xGoal) + (y - yGoal) * (y - yGoal);
 
 			if (dist < min) {
@@ -106,7 +76,7 @@ int main(int argc, char *argv[]) {
 	memset(idList, 0, ID_HASH);
 
 	// Inicializamos o ponteiro para o último estado
-	last = (Node **)malloc(sizeof(Node *));
+	Node **last = (Node **)malloc(sizeof(Node *));
 	(*last) = NULL;
 
 	buildMap(root->state, argv[1]);
