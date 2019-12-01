@@ -155,7 +155,6 @@ int main(int argc, char *argv[]) {
 
 	// Constroi o primeiro estado, sequencialmente
 	buildMap(root, argv[1]);
-	getStateId(root);
 
 	// Criamos 3*(número_de_caixas+player) locks
 	lockLevels = malloc((root->boxes + 1) * 3 * sizeof(omp_lock_t *));
@@ -163,6 +162,8 @@ int main(int argc, char *argv[]) {
 		lockLevels[levels] = malloc(sizeof(omp_lock_t *));
 		omp_init_lock(lockLevels[levels]);
 	}
+
+	getStateId(root);
 
 	// Quantidade de threads solicitados
 	int threads = strtol(argv[2], NULL, 10);
