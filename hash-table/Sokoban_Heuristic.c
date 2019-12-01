@@ -12,6 +12,77 @@ VisitedId *idList[ID_HASH];
 
 unsigned char getStateId(State *s) { return checkIfStateIdExists(idList, s); }
 
+unsigned char insertState(Node **root, Node **last, State *s) {
+	if (isFinal(s)) {
+		//É final
+		return 1;
+	}
+
+	int h = s->heuristic;
+
+	if ((*root) == NULL) {
+		// Criamos o nó
+		(*root) = (Node *)malloc(sizeof(Node));
+		(*root)->nextState = NULL;
+		// Colocamos o estado no nó
+		(*root)->state = (State *)malloc(sizeof(State));
+		copyState(s, (*root)->state);
+		return 0;
+	}
+
+	Node **next = &((*root)->nextState);
+
+	if ((*next) == NULL) {
+		// Se o próximo é vazio, nossa lista só tem um nó
+		(*next) = (Node *)malloc(sizeof(Node));
+		(*next)->nextState = NULL;
+		(*next)->state = (State *)malloc(sizeof(State));
+		// Se a heurística deste nó é menor que a do primeiro nó, trocamos.
+		if (h < (*root)->state->heuristic) {
+			copyState((*root)->state, (*next)->state);
+			copyState(s, (*root)->state);
+		} else {
+			// Colocamos o estado no nó
+			copyState(s, (*next)->state);
+			return 0;
+		}
+	}
+
+	// Sabemos que há mais de 2 nós
+	next = &((*root));
+
+	while ((*next)->state->heuristic <= h) {
+		// Enquanto a heurística do nó for menor ou igual, vamos avançando
+		next = &((*next)->nextState);
+		if ((*next) == NULL) {
+			// Chegamos no final da lista.
+			(*next) = (Node *)malloc(sizeof(Node));
+			(*next)->state = (State *)malloc(sizeof(State));
+			(*next)->nextState = NULL;
+			copyState(s, (*next)->state);
+			return 0;
+		}
+	}
+
+	// Se chegamos aqui, há algum nó com uma heurística maior que o estado s, e
+	// este está em next Criamos um novo nó.
+	Node *transferState = (Node *)malloc(sizeof(Node));
+
+	// Copiamos o nó com maior heurística para transferState
+	memcpy(transferState, (*next), sizeof(Node));
+	transferState->state = (State *)malloc(sizeof(State));
+
+	// Copiamos o valor do estado para o próximo nó
+	copyState((*next)->state, transferState->state);
+
+	// Redirecionamos a lista para o próximo nó
+	(*next)->nextState = transferState;
+
+	// Copiamos o estado.
+	copyState(s, (*next)->state);
+	return 0;
+}
+
 int getHeuristic(State *s) {
 	int min, x, y, xGoal, yGoal, dist, h = 0;
 
@@ -91,6 +162,7 @@ int main(int argc, char *argv[]) {
 		for (int i = 0; i < 4; i++) {
 			copyState(rootState, s);
 			if (movePlayer(s, i, getStateId) != 0) {
+				getHeuristic(s);
 				final = insertState(&root, last, s);
 			}
 

@@ -61,42 +61,6 @@ unsigned long long int getIdIndex(State *s) {
 	return h;
 }
 
-unsigned char insertState(Node **root, Node **last, State *s) {
-	if (isFinal(s)) {
-		//É final
-		return 1;
-	}
-
-	// Lista está vazia.
-	if ((*root) == NULL) {
-		// Criamos o nó
-		(*root) = (Node *)malloc(sizeof(Node));
-
-		// Last também estará nulo neste caso, portanto criaremos um novo.
-		*last = (Node *)malloc(sizeof(Node));
-		(*last)->state = NULL;
-
-		// A raiz aponta para o último
-		(*root)->nextState = (*last);
-
-		// Colocamos o estado no nó
-		(*root)->state = (State *)malloc(sizeof(State));
-
-		copyState(s, (*root)->state);
-		return 0;
-	}
-
-	// Colocamos este estado no último
-	(*last)->state = (State *)malloc(sizeof(State));
-	copyState(s, (*last)->state);
-	(*last)->nextState = (Node *)malloc(sizeof(Node));
-	(*last)->nextState->state = NULL;
-
-	// Mudamos a posição do último estado.
-	*last = (*last)->nextState;
-	return 0;
-}
-
 // Função que devolve o primeiro estado na lista cuja raiz é root
 State *popState(Node **root) {
 	State *rootState = (*root)->state;
