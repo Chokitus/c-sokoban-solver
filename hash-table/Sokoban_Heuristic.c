@@ -1,117 +1,85 @@
+#include "../common/common.h"
 #include "../common/sort.h"
 #include "../common/structures.h"
-#include "../common/common.h"
 #include "../common/util.h"
+#include "hash-table.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_Node 100000000
-#define ID_HASH 100000000
-
-// Lista ligada (com hash de resto da divisão) para os ids visitados.
-typedef struct visitedId {
-	unsigned char *stateId;
-	struct visitedId *nextId;
-} visitedId;
-
-// Lista ligada (ordenada) com cada estado.
-typedef struct Node {
-	State *state;
-	struct Node *nextState;
-} Node;
-
-// Quantidade de nós visitados
-unsigned int numberOfNodes;
-
 // Array para o espalhamento dos IDs.
-visitedId *idList[ID_HASH];
+VisitedId *idList[ID_HASH];
 
-unsigned int activeStates = 0;
-unsigned int storedIds = 0;
-unsigned int filteredIds = 0;
+unsigned char getStateId(State *s) { return checkIfStateIdExists(idList, s); }
 
-Node **last;
-
-// Função que procura o id na lista
-unsigned char findId(char *idHash, unsigned long long int id) {
-	// Primeiro pegamos o index
-	unsigned int idIndex = id % ID_HASH;
-
-	// Começamos da cabeça da lista
-	visitedId **idIterator = &(idList[idIndex]);
-
-	// E iteramos até o final
-	while ((*idIterator) != NULL) {
-		if (strcmp((*idIterator)->stateId, idHash) == 0) {
-			// Encontrou o id, significa que este estado foi visitado antes
-			return 1;
-		}
-		idIterator = &((*idIterator)->nextId);
-	}
-	// Não encontrou, é um estado novo
-	return 0;
-}
-
-void insertId(unsigned char *idHash, unsigned long long int id) {
-	// Pegamos o índice
-	storedIds++;
-
-	// Começamos da cabeça da lista
-	visitedId **idIterator = &(idList[id % ID_HASH]);
-
-	if ((*idIterator) == NULL) {
-		*idIterator = (visitedId *)malloc(sizeof(visitedId));
-		(*idIterator)->stateId = idHash;
-		(*idIterator)->nextId = NULL;
-		return;
-	}
-	while ((*idIterator)->nextId != NULL) {
-		idIterator = &((*idIterator)->nextId);
-	}
-	(*idIterator)->nextId = (visitedId *)malloc(sizeof(visitedId));
-	(*idIterator)->nextId->stateId = idHash;
-	(*idIterator)->nextId->nextId = NULL;
-}
-
-//-------------------------------------------------------------------
-
-unsigned long long int getIdIndex(State *s) {
-	unsigned long long h = 5381;
-
-	for (int i = 0; i < s->boxes; i++) {
-		h = ((h << 5) + h) + s->posBoxes[i] / 2 + s->posBoxes[i] % 20;
-	}
-	h = ((h << 5) + h) + s->posPlayer / 2 + s->posPlayer % 20;
-}
-
-// Função de Hash para pegar o ID do Estado
-unsigned char getStateId(State *s) {
-	// Fazemos um sort pois a ordem das caixas não pode importar
-	quickSort(s->posBoxes, 0, s->boxes - 1);
-
-	unsigned char idHash[s->boxes * 4 + 5];
-	unsigned char buffer[5];
-	memset(idHash, 0, s->boxes * 5 + 5);
-
-	unsigned long long h = getIdIndex(s);
-	for (int i = 0; i < s->boxes; i++) {
-		sprintf(buffer, "%hu", s->posBoxes[i]);
-		strcat(idHash, buffer);
-		strcat(idHash, " ");
-	}
-	sprintf(buffer, "%hu", s->posPlayer);
-	strcat(idHash, buffer);
-
-	// Procuramos o ID na lista. Se estiver, retornamos verdadeiro
-	if (findId(idHash, h) == 1) {
-		filteredIds++;
+unsigned char insertState(Node **root, Node **last, State *s) {
+	if (isFinal(s)) {
+		//É final
 		return 1;
 	}
 
-	// Sendo id único, inserimos o mesmo
-	insertId(idHash, h);
+	int h = s->heuristic;
 
+	if ((*root) == NULL) {
+		// Criamos o nó
+		(*root) = (Node *)malloc(sizeof(Node));
+		(*root)->nextState = NULL;
+		// Colocamos o estado no nó
+		(*root)->state = (State *)malloc(sizeof(State));
+		copyState(s, (*root)->state);
+		return 0;
+	}
+
+	Node **next = &((*root)->nextState);
+
+	if ((*next) == NULL) {
+		// Se o próximo é vazio, nossa lista só tem um nó
+		(*next) = (Node *)malloc(sizeof(Node));
+		(*next)->nextState = NULL;
+		(*next)->state = (State *)malloc(sizeof(State));
+		// Se a heurística deste nó é menor que a do primeiro nó, trocamos.
+		if (h < (*root)->state->heuristic) {
+			copyState((*root)->state, (*next)->state);
+			copyState(s, (*root)->state);
+		} else {
+			// Colocamos o estado no nó
+			copyState(s, (*next)->state);
+			return 0;
+		}
+	}
+
+	// Sabemos que há mais de 2 nós
+	next = &((*root));
+
+	while ((*next)->state->heuristic <= h) {
+		// Enquanto a heurística do nó for menor ou igual, vamos avançando
+		next = &((*next)->nextState);
+		if ((*next) == NULL) {
+			// Chegamos no final da lista.
+			(*next) = (Node *)malloc(sizeof(Node));
+			(*next)->state = (State *)malloc(sizeof(State));
+			(*next)->nextState = NULL;
+			copyState(s, (*next)->state);
+			return 0;
+		}
+	}
+
+	// Se chegamos aqui, há algum nó com uma heurística maior que o estado s, e
+	// este está em next Criamos um novo nó.
+	Node *transferState = (Node *)malloc(sizeof(Node));
+
+	// Copiamos o nó com maior heurística para transferState
+	memcpy(transferState, (*next), sizeof(Node));
+	transferState->state = (State *)malloc(sizeof(State));
+
+	// Copiamos o valor do estado para o próximo nó
+	copyState((*next)->state, transferState->state);
+
+	// Redirecionamos a lista para o próximo nó
+	(*next)->nextState = transferState;
+
+	// Copiamos o estado.
+	copyState(s, (*next)->state);
 	return 0;
 }
 
@@ -135,7 +103,7 @@ int getHeuristic(State *s) {
 			yGoal = s->posGoals[j] / 20;
 
 			//"Distância" na forma (x-x')+(y-y'). Entre aspas pois o correto
-			//seria a raiz do mesmo, mas isto não importa para nós
+			// seria a raiz do mesmo, mas isto não importa para nós
 			dist = (x - xGoal) * (x - xGoal) + (y - yGoal) * (y - yGoal);
 
 			if (dist < min) {
@@ -146,7 +114,7 @@ int getHeuristic(State *s) {
 					// inútil procurar nos demais.
 					break;
 				}
-				if (s->grid[s->posGoals[j]] != '*') {
+				if (s->grid[s->posGoals[j]] != FILLED_GOAL) {
 					// Faremos essa atribuição para o min somente se o goal que
 					// estamos olhando não possui uma caixa sobre ele. Como esta
 					// caixa não entrou em dist == 0, significa que se uma caixa
@@ -161,76 +129,11 @@ int getHeuristic(State *s) {
 		h += min;
 	}
 
-	// s->heuristic = h;
-
 	// Dividimos a mesma pela quantidade de caixas nos alvos para que esta ação
 	// seja recompensada
 	s->heuristic = h / (s->boxesOnGoals + 1);
-	// s->heuristic = 1;
 	return h;
 };
-
-unsigned char isFinal(State *s) {
-	if (s->boxes == s->boxesOnGoals) {
-		return 1;
-	}
-	return 0;
-}
-
-unsigned char insertState(Node **root, State *s) {
-	if (isFinal(s)) {
-		//É final
-		return 1;
-	}
-
-	numberOfNodes++;
-	activeStates++;
-
-	// Lista está vazia.
-	if ((*root) == NULL) {
-		// Criamos o nó
-		(*root) = (Node *)malloc(sizeof(Node));
-
-		// Last também estará nulo neste caso, portanto criaremos um novo.
-		(*last) = (Node *)malloc(sizeof(Node));
-		(*last)->state = NULL;
-
-		(*root)->nextState = (*last);
-		numberOfNodes++;
-		// Colocamos o estado no nó
-		(*root)->state = (State *)malloc(sizeof(State));
-		copyState(s, (*root)->state);
-		return 0;
-	}
-
-	// Colocamos este estado no último
-	(*last)->state = (State *)malloc(sizeof(State));
-	copyState(s, (*last)->state);
-	(*last)->nextState = (Node *)malloc(sizeof(Node));
-	(*last)->nextState->state = NULL;
-
-	// Mudamos a posição do último estado.
-	last = &((*last)->nextState);
-	return 0;
-}
-
-void popState(Node **s, State **rootState) {
-	*rootState = (*s)->state;
-
-	activeStates--;
-
-	// Se o próximo esta vazio, este deve ser anulado
-	if ((*s)->nextState == NULL) {
-		free((*s));
-		(*s) = NULL;
-		return;
-	}
-
-	// Há mais de um, portanto devemos trocar de lugar o antigo com o novo
-	Node *tempNode = (*s);
-	(*s) = (*s)->nextState;
-	free(tempNode);
-}
 
 int main(int argc, char *argv[]) {
 	Node *root = (Node *)malloc(sizeof(Node));
@@ -244,11 +147,8 @@ int main(int argc, char *argv[]) {
 	memset(idList, 0, ID_HASH);
 
 	// Inicializamos o ponteiro para o último estado
-	last = (Node **)malloc(sizeof(void *));
+	Node **last = (Node **)malloc(sizeof(Node *));
 	(*last) = NULL;
-
-	numberOfNodes = 1;
-	activeStates = 1;
 
 	buildMap(root->state, argv[1]);
 	getStateId(root->state);
@@ -256,23 +156,14 @@ int main(int argc, char *argv[]) {
 
 	s = (State *)malloc(sizeof(State));
 
-	while (numberOfNodes < MAX_Node && final != 1) {
-		if (numberOfNodes % 10000 == 0) {
-			printf("%d, %d estados ocupando %ld MB, %d ids ocupando %ld MB\n",
-			       numberOfNodes, activeStates,
-			       activeStates * (sizeof(Node) + sizeof(State)) / 1048576,
-			       storedIds, storedIds * sizeof(visitedId) / 1048576);
-			printf("%d ids filtrados\n\n", filteredIds);
-		}
-
-		free(rootState);
-
-		popState(&root, &rootState);
+	while (final != 1) {
+		rootState = popState(&root);
 
 		for (int i = 0; i < 4; i++) {
 			copyState(rootState, s);
 			if (movePlayer(s, i, getStateId) != 0) {
-				final = insertState(&root, s);
+				getHeuristic(s);
+				final = insertState(&root, last, s);
 			}
 
 			if (final == 1) {
@@ -281,6 +172,7 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 		}
+		free(rootState);
 	}
 
 	return 0;

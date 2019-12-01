@@ -1,133 +1,81 @@
+#include "../common/common.h"
 #include "../common/sort.h"
 #include "../common/structures.h"
-#include "../common/common.h"
 #include "../common/util.h"
+#include "trie.h"
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-// Quantos estados cada thread deve explorar
-#define SIZE_THREAD_LIST 10000
-
-// Quantos estados por thread a main deve criar antes de seguir
-#define NUM_MAIN_STATES 1000
-
-// Trie para os ids.
-typedef struct idTrie {
-	struct idTrie *idLeafs[10];
-} idTrie;
-
 // Locks a serem usados
 omp_lock_t **lockLevels;
 
 // Ponteiro para a raiz da trie de ids.
-idTrie *mainId;
+IdTrie *mainId;
 
-// Ponteiro para o último estado da lista principal.
-State **lastMainState;
+/**
+ * Navigates through trie starting with a reference position.
+ * This function sets locks for each trie level. Here, we create at least
+ * 2 locks, maybe 3 if position is over 100.
+ * @param trie Trie that will be navigated
+ * @param visitedLevel Flag indicating number of levels visited. This is used to
+ * coordinate OpenMP locks.
+ * @param position Reference position for navigation
+ * @return 1 If any of the navigated positions already existed. 0 otherwise.
+ * @author marcos.romero
+ */
+unsigned char updateTrie(IdTrie **trie, unsigned short *visitedLevel,
+                         unsigned short position) {
+	unsigned short tempValue = 0;
+	unsigned char found = 0;
 
-// Cria um novo nó na trie
-idTrie *new_trie() {
-	idTrie *returnTrie = malloc(sizeof(idTrie));
-	memset(returnTrie->idLeafs, 0, 10 * sizeof(idTrie *));
-	return returnTrie;
+	if (position > 100) {
+		omp_set_lock(lockLevels[*visitedLevel]);
+		found |= moveTrieToLeaf(trie, position / 100);
+		omp_unset_lock(lockLevels[*visitedLevel]);
+
+		*visitedLevel = *visitedLevel + 1;
+	}
+	tempValue = (position / 10);
+
+	omp_set_lock(lockLevels[*visitedLevel]);
+	found |= moveTrieToLeaf(trie, tempValue % 10);
+	omp_unset_lock(lockLevels[*visitedLevel]);
+
+	*visitedLevel = *visitedLevel + 1;
+
+	omp_set_lock(lockLevels[*visitedLevel]);
+	found |= moveTrieToLeaf(trie, position - tempValue * 10);
+	omp_unset_lock(lockLevels[*visitedLevel]);
+
+	*visitedLevel = *visitedLevel + 1;
+
+	return found;
 }
 
-// Função que procura o id na lista
-unsigned char findId(State *s) {
-	// Apontamos para a mainTrie
-	idTrie *tempTrie = mainId;
+/**
+ * Searches for an ID representing that state on a trie.
+ * @param trie Trie on which the state will be searched.
+ * @param s State that will be searched.
+ * @return 0 if state not found. 1 otherwise.
+ */
+unsigned char findId(IdTrie *trie, State *s) {
+	IdTrie *tempTrie = trie;
 
-	unsigned short tempValue = 0;
 	unsigned char found = 0;
 	unsigned short visitedLevel = 0;
 
-	/*
-	    É importante somente travar cada "andar" da trie com um lock.
-	    Esta implementação possui, pelo menos, 3*(caixas+player) locks, o que
-	   significa que conseguimos travar cada andar uma vez.
-
-	*/
-
-	// Para cada caixa:
+	// Since updateTrie creates 2 to 3 locks for each position, we can see
+	// that we'll be creating at least 2 * (boxes + 1) locks, being 1 extra set
+	// of locks for the player position.
 	for (short i = 0; i < s->boxes; i++) {
-		if (s->posBoxes[i] > 100) {
-			omp_set_lock(lockLevels[visitedLevel]);
-
-			if (!tempTrie->idLeafs[s->posBoxes[i] / 100]) {
-				tempTrie->idLeafs[s->posBoxes[i] / 100] = new_trie();
-				found = 1;
-			}
-			tempTrie = tempTrie->idLeafs[s->posBoxes[i] / 100];
-
-			omp_unset_lock(lockLevels[visitedLevel]);
-
-			visitedLevel++;
-		}
-		tempValue = (s->posBoxes[i] / 10);
-
-		omp_set_lock(lockLevels[visitedLevel]);
-
-		if (!tempTrie->idLeafs[tempValue % 10]) {
-			tempTrie->idLeafs[tempValue % 10] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[tempValue % 10];
-
-		omp_unset_lock(lockLevels[visitedLevel]);
-
-		visitedLevel++;
-
-		omp_set_lock(lockLevels[visitedLevel]);
-
-		if (!tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10]) {
-			tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10];
-
-		omp_unset_lock(lockLevels[visitedLevel]);
-
-		visitedLevel++;
+		found |= updateTrie(&tempTrie, &visitedLevel, s->posBoxes[i]);
 	}
 
-	omp_set_lock(lockLevels[visitedLevel]);
+	found |= updateTrie(&tempTrie, &visitedLevel, s->posPlayer);
 
-	if (s->posPlayer > 100) {
-		if (!tempTrie->idLeafs[s->posPlayer / 100]) {
-			tempTrie->idLeafs[s->posPlayer / 100] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[s->posPlayer / 100];
-	}
-	tempValue = (s->posPlayer / 10);
-
-	omp_unset_lock(lockLevels[visitedLevel]);
-
-	visitedLevel++;
-
-	omp_set_lock(lockLevels[visitedLevel]);
-
-	if (!tempTrie->idLeafs[tempValue % 10]) {
-		tempTrie->idLeafs[tempValue % 10] = new_trie();
-		found = 1;
-	}
-	tempTrie = tempTrie->idLeafs[tempValue % 10];
-
-	omp_unset_lock(lockLevels[visitedLevel]);
-
-	visitedLevel++;
-
-	omp_set_lock(lockLevels[visitedLevel]);
-
-	if (!tempTrie->idLeafs[s->posPlayer - tempValue * 10]) {
-		tempTrie->idLeafs[s->posPlayer - tempValue * 10] = new_trie();
-		found = 1;
-	}
-
-	omp_unset_lock(lockLevels[visitedLevel]);
 	return found;
 }
 
@@ -137,106 +85,7 @@ unsigned char findId(State *s) {
 unsigned char getStateId(State *s) {
 	// Fazemos um sort pois a ordem das caixas não pode importar
 	quickSort(s->posBoxes, 0, s->boxes - 1);
-
-	/*
-	    Procuramos o ID na trie. Se estiver, retornamos verdadeiro, se não
-	   estiver o colocamos nela.
-	*/
-
-	unsigned char newId;
-	newId = findId(s);
-
-	return newId;
-}
-
-// Função que verifica se o estado é final
-// Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
-// mente, este não está preparado para níveis que possuam mais caixas que
-// objetivos
-unsigned char isFinal(State *s) {
-	if (s->boxes == s->boxesOnGoals) {
-		return 1;
-	}
-	return 0;
-}
-
-// Função que usamos para inserir o estado
-unsigned char insertState(State *root, State *s, State **lastThreadState) {
-	if (isFinal(s)) {
-		//É final
-		return 1;
-	}
-
-	// Lista está vazia ou só possui o root.
-	if (root->nextState == NULL) {
-		// Criamos um novo espaço após root
-		root->nextState = malloc(sizeof(State));
-
-		// Copiamos o estado
-		copyState(s, root->nextState);
-
-		// Last aponta para o último estado. Este last pode ser o da lista
-		// principal, ou do thread
-		(*lastThreadState) = root->nextState;
-
-		return 0;
-	}
-
-	// A lista possui mais de um, e podemos usar seguramente o last
-	(*lastThreadState)->nextState = malloc(sizeof(State));
-	copyState(s, (*lastThreadState)->nextState);
-
-	// Mudamos a posição do último estado.
-	*lastThreadState = (*lastThreadState)->nextState;
-	(*lastThreadState)->nextState = NULL;
-	return 0;
-}
-
-// Função que move uma das listas, enquanto cria a raiz para a outra
-void popState(State **from, State **to) {
-	// Se ambos são o mesmo, devemos fazer uma operação de retirar um nó,
-	// somente
-	if (*to == *from) {
-		State *freeableState = *to;
-		*from = (*from)->nextState;
-		free(freeableState);
-		return;
-	}
-	// Ambos são diferentes, então é o thread solicitando da lista principal
-	// Limpamos o que há no thread
-	free(*to);
-
-	// Thread recebe o primeiro valor da lista principal
-	*to = *from;
-
-	// Lista principal anda em um passo
-	*from = (*from)->nextState;
-
-	// Limpamos o próximo estado no thread, de forma que este não esteja
-	// conectado com a lista principal.
-	(*to)->nextState = NULL;
-}
-
-// Fazemos merge entre as duas listas, conectando o final da main com o começo
-// da thread
-/*
-    mainLast						 threadroot
-    ----------					----------
-    |			|   nextState  |			|
-    |			|------------->|			|
-    |			|              |			|
-    ----------              ----------
-*/
-void mergeLinkedLists(State **threadRoot, State **lastThreadState,
-                      State **mainRoot, State **mainLast) {
-	// O último estado da lista principal recebe o primeiro estado do thread
-	if ((*mainRoot) == NULL) {
-		*mainRoot = *threadRoot;
-	}
-	(*mainLast)->nextState = (*threadRoot);
-	*mainLast = *lastThreadState;
-	*threadRoot = malloc(sizeof(State));
-	*lastThreadState = NULL;
+	return findId(mainId, s) == 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -261,17 +110,16 @@ int main(int argc, char *argv[]) {
 	// Criamos um ponteiro temporário que irá ser movido
 	State *s = malloc(sizeof(State));
 
-	// Ponteiro para o último estado principal é inicializado.
-	lastMainState = malloc(sizeof(State *));
+	// Ponteiro para o último estado da lista principal.
+	State **lastMainState = malloc(sizeof(State *));
 	*lastMainState = NULL;
 
 	// Ponteiro para a raiz da trie de Ids
-	mainId = malloc(sizeof(idTrie));
-	memset(mainId->idLeafs, 0, 10 * sizeof(idTrie *));
+	mainId = malloc(sizeof(IdTrie));
+	memset(mainId->idLeafs, 0, 10 * sizeof(IdTrie *));
 
 	// Constroi o primeiro estado, sequencialmente
 	buildMap(root, argv[1]);
-	getStateId(root);
 
 	// Criamos 3*(número_de_caixas+player) locks
 	lockLevels = malloc((root->boxes + 1) * 3 * sizeof(omp_lock_t *));
@@ -279,6 +127,8 @@ int main(int argc, char *argv[]) {
 		lockLevels[levels] = malloc(sizeof(omp_lock_t *));
 		omp_init_lock(lockLevels[levels]);
 	}
+
+	getStateId(root);
 
 	// Quantidade de threads solicitados
 	int threads = strtol(argv[2], NULL, 10);
@@ -387,9 +237,9 @@ int main(int argc, char *argv[]) {
 
 			// Tentaremos criar uma lista de pelo menos SIZE_THREAD_LIST
 			// elementos antes de adicionar à lista principal. Caso não
-			// conseguimos estados suficientes, activeThreadStates = -1, todos os
-			// nós que pegamos eram inúteis. Isso significa que precisamos pegar
-			// novos nós da lista principal
+			// conseguimos estados suficientes, activeThreadStates = -1, todos
+			// os nós que pegamos eram inúteis. Isso significa que precisamos
+			// pegar novos nós da lista principal
 			if (activeThreadStates < SIZE_THREAD_LIST &&
 			    activeThreadStates > 0) {
 				// Desempilhamos mais um, agora da nossa lista temporária, pois

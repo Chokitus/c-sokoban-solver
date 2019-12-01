@@ -28,7 +28,7 @@ void printPath(State *s) {
 }
 
 int checkWallsAt(State *s, unsigned int pos) {
-	if (s->grid[pos] == '#') {
+	if (s->grid[pos] == WALL) {
 		return 1;
 	}
 	return 0;
@@ -51,11 +51,11 @@ int checkWallsAt(State *s, unsigned int pos) {
     #######
 */
 unsigned char boxTrapped(State *s, int pos) {
-	int wallsUp = s->grid[pos - 20] == '#',
-	    wallsDown = s->grid[pos + 20] == '#',
-	    wallsLeft = s->grid[pos - 1] == '#',
-	    wallsRight = s->grid[pos + 1] == '#';
-	if (s->grid[pos] == '.' || s->grid[pos] == '*') {
+	int wallsUp = s->grid[pos - 20] == WALL,
+	    wallsDown = s->grid[pos + 20] == WALL,
+	    wallsLeft = s->grid[pos - 1] == WALL,
+	    wallsRight = s->grid[pos + 1] == WALL;
+	if (s->grid[pos] == EMPTY_GOAL || s->grid[pos] == FILLED_GOAL) {
 		return 0;
 	}
 	if (wallsUp && wallsLeft) {
@@ -134,11 +134,11 @@ char movePlayer(State *s, int dir, unsigned char (*getStateId)(State *)) {
 		return 0;
 	}
 
-	if (s->grid[tempPos] == '$' || s->grid[tempPos] == '*') {
+	if (s->grid[tempPos] == BOX || s->grid[tempPos] == FILLED_GOAL) {
 		// Tem uma caixa na direção
 		if (checkWallsAt(s, tempPos + movingParam) == 1 ||
-		    s->grid[tempPos + movingParam] == '$' ||
-		    s->grid[tempPos + movingParam] == '*') {
+		    s->grid[tempPos + movingParam] == BOX ||
+		    s->grid[tempPos + movingParam] == FILLED_GOAL) {
 			// Tem uma parede ou caixa após a caixa.
 			return 0;
 		};
@@ -153,20 +153,20 @@ char movePlayer(State *s, int dir, unsigned char (*getStateId)(State *)) {
 			return 0;
 		}
 		// Empurrou uma caixa
-		if (s->grid[tempPos] == '*') {
+		if (s->grid[tempPos] == FILLED_GOAL) {
 			// A caixa estava sobre um alvo
-			s->grid[tempPos] = '.';
+			s->grid[tempPos] = EMPTY_GOAL;
 			s->boxesOnGoals--;
 		} else {
 			// Não estava sobre nada
-			s->grid[tempPos] = 32;
+			s->grid[tempPos] = EMPTY;
 		}
-		if (s->grid[tempPos + movingParam] == '.') {
+		if (s->grid[tempPos + movingParam] == EMPTY_GOAL) {
 			// A posição de destino da caixa é alvo
-			s->grid[tempPos + movingParam] = '*';
+			s->grid[tempPos + movingParam] = FILLED_GOAL;
 			s->boxesOnGoals++;
 		} else {
-			s->grid[tempPos + movingParam] = '$';
+			s->grid[tempPos + movingParam] = BOX;
 		}
 		// Move a caixa nas posições
 		for (int i = 0; i < 30 && s->posBoxes[i] != 0; i++) {
@@ -176,19 +176,19 @@ char movePlayer(State *s, int dir, unsigned char (*getStateId)(State *)) {
 		}
 	}
 
-	if (s->grid[s->posPlayer] == '+') {
+	if (s->grid[s->posPlayer] == PLAYER_ON_GOAL) {
 		// Sokoban tava em cima de um alvo
-		s->grid[s->posPlayer] = '.';
+		s->grid[s->posPlayer] = EMPTY_GOAL;
 	} else {
 		// Sokoban não estava sobre nada
-		s->grid[s->posPlayer] = 32;
+		s->grid[s->posPlayer] = EMPTY;
 	}
-	if (s->grid[tempPos] == '.') {
+	if (s->grid[tempPos] == EMPTY_GOAL) {
 		// Sokoban está indo na direção de um alvo
-		s->grid[tempPos] = '+';
+		s->grid[tempPos] = PLAYER_ON_GOAL;
 	} else {
 		// Não havia nada sobre a posição de destino
-		s->grid[tempPos] = '@';
+		s->grid[tempPos] = PLAYER;
 	}
 
 	s->posPlayer = tempPos;
@@ -204,9 +204,8 @@ char movePlayer(State *s, int dir, unsigned char (*getStateId)(State *)) {
 	return c;
 };
 
-void placeThis(char c, int x, int y, State *s) {
-	if (c == 32 || (c != '@' && c != '$' && c != '.' && c != '*' && c != '+' &&
-	                c != '#')) {
+void placeThis(enum GridObject gridObject, int x, int y, State *s) {
+	if (gridObject == EMPTY) {
 		// Espaço vazio
 		return;
 	}
@@ -216,14 +215,14 @@ void placeThis(char c, int x, int y, State *s) {
 	int pos = x + 20 * y;
 
 	// Colocamos o objeto no grid
-	s->grid[pos] = c;
+	s->grid[pos] = gridObject;
 
-	if (c == '@') {
+	if (gridObject == PLAYER) {
 		//É o player.
 		s->posPlayer = pos;
 		return;
 	}
-	if (c == '$') {
+	if (gridObject == BOX) {
 		//É uma caixa.
 		s->posBoxes[s->boxes++] = pos;
 		return;
@@ -234,13 +233,13 @@ void placeThis(char c, int x, int y, State *s) {
 		++i;
 	}
 
-	if (c == '.') {
+	if (gridObject == EMPTY_GOAL) {
 		//É um alvo.
 		s->posGoals[i] = pos;
 		return;
 	}
 
-	if (c == '*') {
+	if (gridObject == FILLED_GOAL) {
 		//É um alvo e uma caixa.
 		s->posGoals[i] = pos;
 		s->posBoxes[s->boxes++] = pos;
@@ -248,7 +247,7 @@ void placeThis(char c, int x, int y, State *s) {
 		return;
 	}
 
-	if (c == '+') {
+	if (gridObject == PLAYER_ON_GOAL) {
 		//É o player e um alvo.
 		s->posGoals[i] = pos;
 		s->posPlayer = pos;
@@ -268,8 +267,8 @@ void buildMap(State *s, char *level) {
 	memset(s->posBoxes, 0, 30);
 	memset(s->posGoals, 0, 30);
 
-	// Inicializamos o grid com 32, ou ' '
-	memset(s->grid, 32, 400);
+	// Inicializamos o grid com espaços vazios
+	memset(s->grid, EMPTY, 400);
 
 	// Inicializamos a ação com nulo, pois é como saberemos que voltamos até o
 	// começo do processo
@@ -314,3 +313,14 @@ void buildMap(State *s, char *level) {
 	s->width = maxWidth;
 	s->height = height;
 };
+
+// Função que verifica se o estado é final
+// Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
+// mente, este não está preparado para níveis que possuam mais caixas que
+// objetivos
+unsigned char isFinal(State *s) {
+	if (s->boxes == s->boxesOnGoals) {
+		return 1;
+	}
+	return 0;
+}
