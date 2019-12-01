@@ -10,7 +10,7 @@ extern void printPath(State *s);
 extern char movePlayer(State *s, int dir, unsigned char (*getStateId)(State *));
 
 // Função para construir o grid
-extern void placeThis(char c, int x, int y, State *s);
+extern void placeThis(enum GridObject gridObject, int x, int y, State *s);
 
 // Função para construir o mapa
 extern void buildMap(State *s, char *level);

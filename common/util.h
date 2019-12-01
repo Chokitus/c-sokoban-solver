@@ -10,5 +10,14 @@
 #define MAX_PATH_SIZE 3000
 
 enum Direcoes { direita, esquerda, cima, baixo };
+enum GridObject {
+	EMPTY = ' ',
+	PLAYER = '@',
+	WALL = '#',
+	BOX = '$',
+	EMPTY_GOAL = '.',
+	FILLED_GOAL = '*',
+	PLAYER_ON_GOAL = '+'
+};
 
 #endif

@@ -73,7 +73,7 @@ int getHeuristic(State *s) {
 					// inútil procurar nos demais.
 					break;
 				}
-				if (s->grid[s->posGoals[j]] != '*') {
+				if (s->grid[s->posGoals[j]] != FILLED_GOAL) {
 					// Faremos essa atribuição para o min somente se o goal que
 					// estamos olhando não possui uma caixa sobre ele. Como esta
 					// caixa não entrou em dist == 0, significa que se uma caixa
