@@ -1,44 +1,27 @@
+#include "../common/common.h"
 #include "../common/sort.h"
 #include "../common/structures.h"
-#include "../common/common.h"
 #include "../common/util.h"
+#include "trie.h"
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-// Quantos estados cada thread deve explorar
-#define SIZE_THREAD_LIST 10000
-
-// Quantos estados por thread a main deve criar antes de seguir
-#define NUM_MAIN_STATES 1000
-
-// Trie para os ids.
-typedef struct idTrie {
-	struct idTrie *idLeafs[10];
-} idTrie;
-
 // Locks a serem usados
 omp_lock_t **lockLevels;
 
 // Ponteiro para a raiz da trie de ids.
-idTrie *mainId;
+IdTrie *mainId;
 
 // Ponteiro para o último estado da lista principal.
 State **lastMainState;
 
-// Cria um novo nó na trie
-idTrie *new_trie() {
-	idTrie *returnTrie = malloc(sizeof(idTrie));
-	memset(returnTrie->idLeafs, 0, 10 * sizeof(idTrie *));
-	return returnTrie;
-}
-
 // Função que procura o id na lista
 unsigned char findId(State *s) {
 	// Apontamos para a mainTrie
-	idTrie *tempTrie = mainId;
+	IdTrie *tempTrie = mainId;
 
 	unsigned short tempValue = 0;
 	unsigned char found = 0;
@@ -137,95 +120,7 @@ unsigned char findId(State *s) {
 unsigned char getStateId(State *s) {
 	// Fazemos um sort pois a ordem das caixas não pode importar
 	quickSort(s->posBoxes, 0, s->boxes - 1);
-
-	/*
-	    Procuramos o ID na trie. Se estiver, retornamos verdadeiro, se não
-	   estiver o colocamos nela.
-	*/
-
-	unsigned char newId;
-	newId = findId(s);
-
-	return newId;
-}
-
-// Função que usamos para inserir o estado
-unsigned char insertState(State *root, State *s, State **lastThreadState) {
-	if (isFinal(s)) {
-		//É final
-		return 1;
-	}
-
-	// Lista está vazia ou só possui o root.
-	if (root->nextState == NULL) {
-		// Criamos um novo espaço após root
-		root->nextState = malloc(sizeof(State));
-
-		// Copiamos o estado
-		copyState(s, root->nextState);
-
-		// Last aponta para o último estado. Este last pode ser o da lista
-		// principal, ou do thread
-		(*lastThreadState) = root->nextState;
-
-		return 0;
-	}
-
-	// A lista possui mais de um, e podemos usar seguramente o last
-	(*lastThreadState)->nextState = malloc(sizeof(State));
-	copyState(s, (*lastThreadState)->nextState);
-
-	// Mudamos a posição do último estado.
-	*lastThreadState = (*lastThreadState)->nextState;
-	(*lastThreadState)->nextState = NULL;
-	return 0;
-}
-
-// Função que move uma das listas, enquanto cria a raiz para a outra
-void popState(State **from, State **to) {
-	// Se ambos são o mesmo, devemos fazer uma operação de retirar um nó,
-	// somente
-	if (*to == *from) {
-		State *freeableState = *to;
-		*from = (*from)->nextState;
-		free(freeableState);
-		return;
-	}
-	// Ambos são diferentes, então é o thread solicitando da lista principal
-	// Limpamos o que há no thread
-	free(*to);
-
-	// Thread recebe o primeiro valor da lista principal
-	*to = *from;
-
-	// Lista principal anda em um passo
-	*from = (*from)->nextState;
-
-	// Limpamos o próximo estado no thread, de forma que este não esteja
-	// conectado com a lista principal.
-	(*to)->nextState = NULL;
-}
-
-// Fazemos merge entre as duas listas, conectando o final da main com o começo
-// da thread
-/*
-    mainLast						 threadroot
-    ----------					----------
-    |			|   nextState  |			|
-    |			|------------->|			|
-    |			|              |			|
-    ----------              ----------
-*/
-void mergeLinkedLists(State **threadRoot, State **lastThreadState,
-                      State **mainRoot, State **mainLast) {
-	// O último estado da lista principal recebe o primeiro estado do thread
-	if ((*mainRoot) == NULL) {
-		*mainRoot = *threadRoot;
-	}
-	(*mainLast)->nextState = (*threadRoot);
-	*mainLast = *lastThreadState;
-	*threadRoot = malloc(sizeof(State));
-	*lastThreadState = NULL;
+	return findId(s) == 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -255,8 +150,8 @@ int main(int argc, char *argv[]) {
 	*lastMainState = NULL;
 
 	// Ponteiro para a raiz da trie de Ids
-	mainId = malloc(sizeof(idTrie));
-	memset(mainId->idLeafs, 0, 10 * sizeof(idTrie *));
+	mainId = malloc(sizeof(IdTrie));
+	memset(mainId->idLeafs, 0, 10 * sizeof(IdTrie *));
 
 	// Constroi o primeiro estado, sequencialmente
 	buildMap(root, argv[1]);
@@ -376,9 +271,9 @@ int main(int argc, char *argv[]) {
 
 			// Tentaremos criar uma lista de pelo menos SIZE_THREAD_LIST
 			// elementos antes de adicionar à lista principal. Caso não
-			// conseguimos estados suficientes, activeThreadStates = -1, todos os
-			// nós que pegamos eram inúteis. Isso significa que precisamos pegar
-			// novos nós da lista principal
+			// conseguimos estados suficientes, activeThreadStates = -1, todos
+			// os nós que pegamos eram inúteis. Isso significa que precisamos
+			// pegar novos nós da lista principal
 			if (activeThreadStates < SIZE_THREAD_LIST &&
 			    activeThreadStates > 0) {
 				// Desempilhamos mais um, agora da nossa lista temporária, pois

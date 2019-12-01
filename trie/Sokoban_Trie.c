@@ -1,7 +1,8 @@
+#include "../common/common.h"
 #include "../common/sort.h"
 #include "../common/structures.h"
-#include "../common/common.h"
 #include "../common/util.h"
+#include "trie.h"
 #include <omp.h>
 #include <semaphore.h>
 #include <stdio.h>
@@ -9,31 +10,18 @@
 #include <string.h>
 #include <time.h>
 
-// Trie para os ids.
-typedef struct idTrie {
-	struct idTrie *idLeafs[10];
-} idTrie;
-
 // Ponteiro para a raiz da trie de ids.
-idTrie *mainId;
+IdTrie *mainId;
 
 // Ponteiro para o último estado da lista principal.
 State **lastMainState;
 
-void insertId(idTrie *tempTrie, State *s, unsigned short lastI);
-
-// Cria um novo nó na trie
-idTrie *new_trie() {
-	idTrie *returnTrie = malloc(sizeof(idTrie));
-	memset(returnTrie->idLeafs, 0, 10 * sizeof(idTrie *));
-	return returnTrie;
-}
 int memoryInsert = 0;
 
 // Função que procura o id na lista
 unsigned char findId(State *s) {
 	// Apontamos para a mainTrie
-	idTrie *tempTrie = mainId;
+	IdTrie *tempTrie = mainId;
 
 	unsigned short tempValue = 0;
 	unsigned char found = 0;
@@ -107,50 +95,6 @@ unsigned char getStateId(State *s) {
 	return findId(s) == 0;
 }
 
-// Função que usamos para inserir o estado
-unsigned char insertState(State *root, State *s, State **lastThreadState) {
-	if (isFinal(s)) {
-		//É final
-		return 1;
-	}
-
-	// Lista está vazia ou só possui o root.
-	if (root->nextState == NULL) {
-		// Criamos um novo espaço após root
-		root->nextState = malloc(sizeof(State));
-
-		// Copiamos o estado
-		copyState(s, root->nextState);
-
-		// Last aponta para o último estado. Este last pode ser o da lista
-		// principal, ou do thread
-		(*lastThreadState) = root->nextState;
-
-		return 0;
-	}
-
-	// A lista possui mais de um, e podemos usar seguramente o last
-	(*lastThreadState)->nextState = malloc(sizeof(State));
-	copyState(s, (*lastThreadState)->nextState);
-
-	// Mudamos a posição do último estado.
-	*lastThreadState = (*lastThreadState)->nextState;
-	(*lastThreadState)->nextState = NULL;
-	return 0;
-}
-
-// Função que move uma das listas, enquanto cria a raiz para a outra
-void popState(State **from, State **to) {
-	// Se ambos são o mesmo, devemos fazer uma operação de retirar um nó,
-	// somente
-	if (*to == *from) {
-		State *freeableState = *to;
-		*from = (*from)->nextState;
-		free(freeableState);
-		return;
-	}
-}
-
 int main(int argc, char *argv[]) {
 	struct timespec before, after;
 	time_t nSeconds;
@@ -178,8 +122,8 @@ int main(int argc, char *argv[]) {
 	*lastMainState = NULL;
 
 	// Ponteiro para a raiz da trie de Ids
-	mainId = malloc(sizeof(idTrie));
-	memset(mainId->idLeafs, 0, 10 * sizeof(idTrie *));
+	mainId = malloc(sizeof(IdTrie));
+	memset(mainId->idLeafs, 0, 10 * sizeof(IdTrie *));
 
 	// Constroi o primeiro estado, sequencialmente
 	buildMap(root, argv[1]);
