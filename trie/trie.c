@@ -86,3 +86,22 @@ void mergeLinkedLists(State **threadRoot, State **lastThreadState,
 	*threadRoot = malloc(sizeof(State));
 	*lastThreadState = NULL;
 }
+
+/**
+ * Moves trie to leaf on a position. If leaf does not exist, it is created.
+ * @param trie Trie that will be moved
+ * @param position Leaf position on leaves array.
+ * @return 0 if position is already defined, 1 if it was created by this function.
+ * @author marcos.romero
+ */
+unsigned char moveTrieToLeaf(IdTrie **trie, unsigned short position) {
+	unsigned char created;
+	if ((*trie)->idLeafs[position]) {
+		created = 0;
+	} else {
+		created = 1;
+		(*trie)->idLeafs[position] = new_trie();
+	}
+	*trie = (*trie)->idLeafs[position];
+	return created;
+}

@@ -3,8 +3,6 @@
 #include "../common/structures.h"
 #include "../common/util.h"
 #include "trie.h"
-#include <omp.h>
-#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,75 +11,44 @@
 // Ponteiro para a raiz da trie de ids.
 IdTrie *mainId;
 
-// Ponteiro para o último estado da lista principal.
-State **lastMainState;
-
-int memoryInsert = 0;
-
-// Função que procura o id na lista
-unsigned char findId(State *s) {
-	// Apontamos para a mainTrie
-	IdTrie *tempTrie = mainId;
-
+/**
+ * Navigates through trie starting with a reference position.
+ * @param trie Trie that will be navigated
+ * @param position Reference position for navigation
+ * @return 1 If any of the navigated positions already existed. 0 otherwise.
+ * @author marcos.romero
+ */
+unsigned char updateTrie(IdTrie **trie, unsigned short position) {
 	unsigned short tempValue = 0;
 	unsigned char found = 0;
 
-	/*
-	    É importante somente travar cada "andar" da trie com um lock.
-	    Esta implementação possui, pelo menos, 3*(caixas+player) locks, o que
-	    significa que conseguimos travar cada andar uma vez.
-	*/
+	if (position > 100) {
+		found |= moveTrieToLeaf(trie, position / 100);
+	}
+	tempValue = (position / 10);
+
+	found |= moveTrieToLeaf(trie, tempValue % 10);
+	found |= moveTrieToLeaf(trie, position - tempValue * 10);
+	return found;
+}
+
+/**
+ * Searches for an ID representing that state on a trie.
+ * @param trie Trie on which the state will be searched.
+ * @param s State that will be searched.
+ * @return 0 if state not found. 1 otherwise.
+ */
+unsigned char findId(IdTrie *trie, State *s) {
+	IdTrie *tempTrie = trie;
+
+	unsigned char found = 0;
 
 	// Para cada caixa:
-	for (short i = 0; i < s->boxes; i++) {
-		if (s->posBoxes[i] > 100) {
-
-			if (!tempTrie->idLeafs[s->posBoxes[i] / 100]) {
-				memoryInsert++;
-				tempTrie->idLeafs[s->posBoxes[i] / 100] = new_trie();
-				found = 1;
-			}
-			tempTrie = tempTrie->idLeafs[s->posBoxes[i] / 100];
-		}
-		tempValue = (s->posBoxes[i] / 10);
-
-		if (!tempTrie->idLeafs[tempValue % 10]) {
-			memoryInsert++;
-			tempTrie->idLeafs[tempValue % 10] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[tempValue % 10];
-
-		if (!tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10]) {
-			memoryInsert++;
-			tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10];
+	for (short boxId = 0; boxId < s->boxes; boxId++) {
+		found |= updateTrie(&tempTrie, s->posBoxes[boxId]);
 	}
 
-	if (s->posPlayer > 100) {
-		if (!tempTrie->idLeafs[s->posPlayer / 100]) {
-			memoryInsert++;
-			tempTrie->idLeafs[s->posPlayer / 100] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[s->posPlayer / 100];
-	}
-	tempValue = (s->posPlayer / 10);
-
-	if (!tempTrie->idLeafs[tempValue % 10]) {
-		memoryInsert++;
-		tempTrie->idLeafs[tempValue % 10] = new_trie();
-		found = 1;
-	}
-	tempTrie = tempTrie->idLeafs[tempValue % 10];
-
-	if (!tempTrie->idLeafs[s->posPlayer - tempValue * 10]) {
-		memoryInsert++;
-		tempTrie->idLeafs[s->posPlayer - tempValue * 10] = new_trie();
-		found = 1;
-	}
+	found |= updateTrie(&tempTrie, s->posPlayer);
 
 	return found;
 }
@@ -92,7 +59,7 @@ unsigned char findId(State *s) {
 unsigned char getStateId(State *s) {
 	// Fazemos um sort pois a ordem das caixas não pode importar
 	quickSort(s->posBoxes, 0, s->boxes - 1);
-	return findId(s) == 0;
+	return findId(mainId, s) == 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -101,9 +68,6 @@ int main(int argc, char *argv[]) {
 
 	// Começamos a contagem de tempo.
 	clock_gettime(CLOCK_REALTIME, &before);
-
-	// Começamos um contador para a lista principal
-	unsigned int mainStates = 1;
 
 	// Criamos espaço para uma variável compartilhada que verifica se foi
 	// encontrado uma solução por algum dos threads
@@ -117,8 +81,8 @@ int main(int argc, char *argv[]) {
 	// Criamos um ponteiro temporário que irá ser movido
 	State *s = malloc(sizeof(State));
 
-	// Ponteiro para o último estado principal é inicializado.
-	lastMainState = malloc(sizeof(State *));
+	// Ponteiro para o último estado da lista principal.
+	State **lastMainState = malloc(sizeof(State *));
 	*lastMainState = NULL;
 
 	// Ponteiro para a raiz da trie de Ids
@@ -139,7 +103,6 @@ int main(int argc, char *argv[]) {
 				/*movePlayer retorna 0 se não foi possível mover, seja por uma
 				caixa sendo empurrada numa parede,
 				seja por estarmos andando de cara na parede*/
-				mainStates++;
 				if (insertState(root, s, lastMainState)) {
 					// Se ele entrou aqui, quer dizer que, durante a inserção,
 					// foi notado que ele é um estado final.
@@ -153,7 +116,6 @@ int main(int argc, char *argv[]) {
 		moved = 0;
 		// Movemos root, colocando root como próximo estado
 		popState(&root, &root);
-		mainStates--;
 	}
 
 	// Finalizamos a contagem de tempo.

@@ -12,12 +12,14 @@
 // Array para o espalhamento dos IDs.
 IdTrie *mainId;
 
-State **lastMainState;
-
-// Função que procura o id na lista
-unsigned char findId(State *s) {
-	// Apontamos para a mainTrie
-	IdTrie *tempTrie = mainId;
+/**
+ * Searches for an ID representing that state on a trie.
+ * @param trie Trie on which the state will be searched.
+ * @param s State that will be searched.
+ * @return 0 if state not found. 1 otherwise.
+ */
+unsigned char findId(IdTrie *trie, State *s) {
+	IdTrie *tempTrie = trie;
 	unsigned short tempValue = 0;
 	unsigned char found = 0;
 
@@ -25,61 +27,28 @@ unsigned char findId(State *s) {
 	for (short i = 0; i < s->boxes; i++) {
 		if (s->posBoxes[i] > 100) {
 #pragma critical(part1)
-			{
-				if (!tempTrie->idLeafs[s->posBoxes[i] / 100]) {
-					tempTrie->idLeafs[s->posBoxes[i] / 100] = new_trie();
-					found = 1;
-				}
-				tempTrie = tempTrie->idLeafs[s->posBoxes[i] / 100];
-			}
+			{ found |= moveTrieToLeaf(&tempTrie, s->posBoxes[i] / 100); }
 		}
 		tempValue = (s->posBoxes[i] / 10);
 #pragma critical(part2)
-		{
-			if (!tempTrie->idLeafs[tempValue % 10]) {
-				tempTrie->idLeafs[tempValue % 10] = new_trie();
-				found = 1;
-			}
-			tempTrie = tempTrie->idLeafs[tempValue % 10];
-		}
+		{ found |= moveTrieToLeaf(&tempTrie, tempValue % 10); }
 
 #pragma critical(part3)
-		{
-			if (!tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10]) {
-				tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10] = new_trie();
-				found = 1;
-			}
-			tempTrie = tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10];
-		}
+		{ found |= moveTrieToLeaf(&tempTrie, s->posBoxes[i] - tempValue * 10); }
 	}
+
+	if (s->posPlayer > 100) {
 #pragma critical(part4)
-	{
-		if (s->posPlayer > 100) {
-			if (!tempTrie->idLeafs[s->posPlayer / 100]) {
-				tempTrie->idLeafs[s->posPlayer / 100] = new_trie();
-				found = 1;
-			}
-			tempTrie = tempTrie->idLeafs[s->posPlayer / 100];
-		}
-		tempValue = (s->posPlayer / 10);
+		{ found |= moveTrieToLeaf(&tempTrie, s->posPlayer / 100); }
 	}
+
+	tempValue = (s->posPlayer / 10);
 
 #pragma critical(part5)
-	{
-		if (!tempTrie->idLeafs[tempValue % 10]) {
-			tempTrie->idLeafs[tempValue % 10] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[tempValue % 10];
-	}
+	{ found |= moveTrieToLeaf(&tempTrie, tempValue % 10); }
 
 #pragma critical(part6)
-	{
-		if (!tempTrie->idLeafs[s->posPlayer - tempValue * 10]) {
-			tempTrie->idLeafs[s->posPlayer - tempValue * 10] = new_trie();
-			found = 1;
-		}
-	}
+	{ found |= moveTrieToLeaf(&tempTrie, s->posPlayer - tempValue * 10); }
 	return found;
 }
 
@@ -89,7 +58,7 @@ unsigned char findId(State *s) {
 unsigned char getStateId(State *s) {
 	// Fazemos um sort pois a ordem das caixas não pode importar
 	quickSort(s->posBoxes, 0, s->boxes - 1);
-	return findId(s) == 0;
+	return findId(mainId, s) == 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -115,7 +84,7 @@ int main(int argc, char *argv[]) {
 	State *s = malloc(sizeof(State));
 
 	// Ponteiro para o último estado principal é inicializado.
-	lastMainState = malloc(sizeof(State *));
+	State **lastMainState = malloc(sizeof(State *));
 	*lastMainState = NULL;
 
 	// Ponteiro para a raiz da trie de Ids

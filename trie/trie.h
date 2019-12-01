@@ -40,4 +40,13 @@ extern void popState(State **from, State **to);
 extern void mergeLinkedLists(State **threadRoot, State **lastThreadState,
                       State **mainRoot, State **mainLast);
 
+/**
+ * Moves trie to leaf on a position. If leaf does not exist, it is created.
+ * @param trie Trie that will be moved
+ * @param position Leaf position on leaves array.
+ * @return 0 if position is already defined, 1 if it was created by this function.
+ * @author marcos.romero
+ */
+extern unsigned char moveTrieToLeaf(IdTrie **trie, unsigned short position);
+
 #endif

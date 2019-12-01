@@ -15,102 +15,67 @@ omp_lock_t **lockLevels;
 // Ponteiro para a raiz da trie de ids.
 IdTrie *mainId;
 
-// Ponteiro para o último estado da lista principal.
-State **lastMainState;
-
-// Função que procura o id na lista
-unsigned char findId(State *s) {
-	// Apontamos para a mainTrie
-	IdTrie *tempTrie = mainId;
-
+/**
+ * Navigates through trie starting with a reference position.
+ * This function sets locks for each trie level. Here, we create at least
+ * 2 locks, maybe 3 if position is over 100.
+ * @param trie Trie that will be navigated
+ * @param visitedLevel Flag indicating number of levels visited. This is used to
+ * coordinate OpenMP locks.
+ * @param position Reference position for navigation
+ * @return 1 If any of the navigated positions already existed. 0 otherwise.
+ * @author marcos.romero
+ */
+unsigned char updateTrie(IdTrie **trie, unsigned short *visitedLevel,
+                         unsigned short position) {
 	unsigned short tempValue = 0;
+	unsigned char found = 0;
+
+	if (position > 100) {
+		omp_set_lock(lockLevels[*visitedLevel]);
+		found |= moveTrieToLeaf(trie, position / 100);
+		omp_unset_lock(lockLevels[*visitedLevel]);
+
+		*visitedLevel = *visitedLevel + 1;
+	}
+	tempValue = (position / 10);
+
+	omp_set_lock(lockLevels[*visitedLevel]);
+	found |= moveTrieToLeaf(trie, tempValue % 10);
+	omp_unset_lock(lockLevels[*visitedLevel]);
+
+	*visitedLevel = *visitedLevel + 1;
+
+	omp_set_lock(lockLevels[*visitedLevel]);
+	found |= moveTrieToLeaf(trie, position - tempValue * 10);
+	omp_unset_lock(lockLevels[*visitedLevel]);
+
+	*visitedLevel = *visitedLevel + 1;
+
+	return found;
+}
+
+/**
+ * Searches for an ID representing that state on a trie.
+ * @param trie Trie on which the state will be searched.
+ * @param s State that will be searched.
+ * @return 0 if state not found. 1 otherwise.
+ */
+unsigned char findId(IdTrie *trie, State *s) {
+	IdTrie *tempTrie = trie;
+
 	unsigned char found = 0;
 	unsigned short visitedLevel = 0;
 
-	/*
-	    É importante somente travar cada "andar" da trie com um lock.
-	    Esta implementação possui, pelo menos, 3*(caixas+player) locks, o que
-	   significa que conseguimos travar cada andar uma vez.
-
-	*/
-
-	// Para cada caixa:
+	// Since updateTrie creates 2 to 3 locks for each position, we can see
+	// that we'll be creating at least 2 * (boxes + 1) locks, being 1 extra set
+	// of locks for the player position.
 	for (short i = 0; i < s->boxes; i++) {
-		if (s->posBoxes[i] > 100) {
-			omp_set_lock(lockLevels[visitedLevel]);
-
-			if (!tempTrie->idLeafs[s->posBoxes[i] / 100]) {
-				tempTrie->idLeafs[s->posBoxes[i] / 100] = new_trie();
-				found = 1;
-			}
-			tempTrie = tempTrie->idLeafs[s->posBoxes[i] / 100];
-
-			omp_unset_lock(lockLevels[visitedLevel]);
-
-			visitedLevel++;
-		}
-		tempValue = (s->posBoxes[i] / 10);
-
-		omp_set_lock(lockLevels[visitedLevel]);
-
-		if (!tempTrie->idLeafs[tempValue % 10]) {
-			tempTrie->idLeafs[tempValue % 10] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[tempValue % 10];
-
-		omp_unset_lock(lockLevels[visitedLevel]);
-
-		visitedLevel++;
-
-		omp_set_lock(lockLevels[visitedLevel]);
-
-		if (!tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10]) {
-			tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[s->posBoxes[i] - tempValue * 10];
-
-		omp_unset_lock(lockLevels[visitedLevel]);
-
-		visitedLevel++;
+		found |= updateTrie(&tempTrie, &visitedLevel, s->posBoxes[i]);
 	}
 
-	omp_set_lock(lockLevels[visitedLevel]);
+	found |= updateTrie(&tempTrie, &visitedLevel, s->posPlayer);
 
-	if (s->posPlayer > 100) {
-		if (!tempTrie->idLeafs[s->posPlayer / 100]) {
-			tempTrie->idLeafs[s->posPlayer / 100] = new_trie();
-			found = 1;
-		}
-		tempTrie = tempTrie->idLeafs[s->posPlayer / 100];
-	}
-	tempValue = (s->posPlayer / 10);
-
-	omp_unset_lock(lockLevels[visitedLevel]);
-
-	visitedLevel++;
-
-	omp_set_lock(lockLevels[visitedLevel]);
-
-	if (!tempTrie->idLeafs[tempValue % 10]) {
-		tempTrie->idLeafs[tempValue % 10] = new_trie();
-		found = 1;
-	}
-	tempTrie = tempTrie->idLeafs[tempValue % 10];
-
-	omp_unset_lock(lockLevels[visitedLevel]);
-
-	visitedLevel++;
-
-	omp_set_lock(lockLevels[visitedLevel]);
-
-	if (!tempTrie->idLeafs[s->posPlayer - tempValue * 10]) {
-		tempTrie->idLeafs[s->posPlayer - tempValue * 10] = new_trie();
-		found = 1;
-	}
-
-	omp_unset_lock(lockLevels[visitedLevel]);
 	return found;
 }
 
@@ -120,7 +85,7 @@ unsigned char findId(State *s) {
 unsigned char getStateId(State *s) {
 	// Fazemos um sort pois a ordem das caixas não pode importar
 	quickSort(s->posBoxes, 0, s->boxes - 1);
-	return findId(s) == 0;
+	return findId(mainId, s) == 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -145,8 +110,8 @@ int main(int argc, char *argv[]) {
 	// Criamos um ponteiro temporário que irá ser movido
 	State *s = malloc(sizeof(State));
 
-	// Ponteiro para o último estado principal é inicializado.
-	lastMainState = malloc(sizeof(State *));
+	// Ponteiro para o último estado da lista principal.
+	State **lastMainState = malloc(sizeof(State *));
 	*lastMainState = NULL;
 
 	// Ponteiro para a raiz da trie de Ids
