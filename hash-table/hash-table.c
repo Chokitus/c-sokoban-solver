@@ -56,15 +56,14 @@ unsigned long long int getIdIndex(State *s) {
 		h = ((h << 5) + h) + s->posBoxes[i] / 2 + s->posBoxes[i] % 20;
 	}
 	h = ((h << 5) + h) + s->posPlayer / 2 + s->posPlayer % 20;
+	return h;
 }
 
-unsigned char insertState(Node **root, Node ***lastNode, State *s) {
+unsigned char insertState(Node **root, Node **last, State *s) {
 	if (isFinal(s)) {
 		//É final
 		return 1;
 	}
-
-	Node **last = (*lastNode);
 
 	// Lista está vazia.
 	if ((*root) == NULL) {
@@ -72,7 +71,7 @@ unsigned char insertState(Node **root, Node ***lastNode, State *s) {
 		(*root) = (Node *)malloc(sizeof(Node));
 
 		// Last também estará nulo neste caso, portanto criaremos um novo.
-		(*last) = (Node *)malloc(sizeof(Node));
+		*last = (Node *)malloc(sizeof(Node));
 		(*last)->state = NULL;
 
 		// A raiz aponta para o último
@@ -92,25 +91,17 @@ unsigned char insertState(Node **root, Node ***lastNode, State *s) {
 	(*last)->nextState->state = NULL;
 
 	// Mudamos a posição do último estado.
-	*lastNode = &((*last)->nextState);
+	*last = (*last)->nextState;
 	return 0;
 }
 
-// Função que devolve, em rootState, o primeiro estado na lista cuja raiz é root
-void popState(Node **root, State **rootState) {
+// Função que devolve o primeiro estado na lista cuja raiz é root
+State *popState(Node **root) {
+	State *rootState = (*root)->state;
 
-	// Transfere o estado
-	*rootState = (*root)->state;
-
-	// Se o próximo esta vazio, este deve ser anulado
-	if ((*root)->nextState == NULL) {
-		free((*root));
-		(*root) = NULL;
-		return;
-	}
-
-	// Há mais de um, portanto devemos trocar de lugar o antigo com o novo
 	Node *tempNode = (*root);
 	(*root) = (*root)->nextState;
 	free(tempNode);
+
+	return rootState;
 }

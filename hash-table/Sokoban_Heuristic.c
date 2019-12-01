@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
 	memset(idList, 0, ID_HASH);
 
 	// Inicializamos o ponteiro para o último estado
-	last = (Node **)malloc(sizeof(void *));
+	last = (Node **)malloc(sizeof(Node *));
 	(*last) = NULL;
 
 	buildMap(root->state, argv[1]);
@@ -116,12 +116,12 @@ int main(int argc, char *argv[]) {
 	s = (State *)malloc(sizeof(State));
 
 	while (final != 1) {
-		popState(&root, &rootState);
+		rootState = popState(&root);
 
 		for (int i = 0; i < 4; i++) {
 			copyState(rootState, s);
 			if (movePlayer(s, i, getStateId) != 0) {
-				final = insertState(&root, &last, s);
+				final = insertState(&root, last, s);
 			}
 
 			if (final == 1) {

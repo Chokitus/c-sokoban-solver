@@ -30,9 +30,9 @@ extern void insertId(VisitedId *idList[ID_HASH], unsigned char *idHash,
 // Esta é a função de hash djb2:
 extern unsigned long long int getIdIndex(State *s);
 
-extern unsigned char insertState(Node **root, Node ***lastNode, State *s);
+extern unsigned char insertState(Node **root, Node **last, State *s);
 
 // Função que devolve, em rootState, o primeiro estado na lista cuja raiz é root
-extern void popState(Node **root, State **rootState);
+extern State *popState(Node **root);
 
 #endif

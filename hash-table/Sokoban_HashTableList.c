@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 	memset(idList, 0, ID_HASH);
 
 	// Inicializamos o ponteiro para o último estado
-	last = (Node **)malloc(sizeof(void *));
+	last = (Node **)malloc(sizeof(Node *));
 	(*last) = NULL;
 
 	// Criamos o mapa
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
 
 	while (final != 1) {
 		// Pegamos o primeiro estado em root e devolvemos em rootState
-		popState(&root, &rootState);
+		rootState = popState(&root);
 
 		// Cada cada direção
 		for (int i = 0; i < 4; i++) {
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 			if (movePlayer(s, i, getStateId) != 0) {
 
 				// Verifica se este estado é final, junto com inseri-lo na lista
-				final = insertState(&root, &last, s);
+				final = insertState(&root, last, s);
 			}
 
 			// Se for final, printamos o caminho
