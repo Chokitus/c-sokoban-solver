@@ -107,17 +107,6 @@ unsigned char getStateId(State *s) {
 	return findId(s) == 0;
 }
 
-// Função que verifica se o estado é final
-// Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
-// mente, este não está preparado para níveis que possuam mais caixas que
-// objetivos
-unsigned char isFinal(State *s) {
-	if (s->boxes == s->boxesOnGoals) {
-		return 1;
-	}
-	return 0;
-}
-
 // Função que usamos para inserir o estado
 unsigned char insertState(State *root, State *s, State **lastThreadState) {
 	if (isFinal(s)) {

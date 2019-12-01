@@ -15,4 +15,10 @@ extern void placeThis(char c, int x, int y, State *s);
 // Função para construir o mapa
 extern void buildMap(State *s, char *level);
 
+// Função que verifica se o estado é final
+// Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
+// mente, este não está preparado para níveis que possuam mais caixas que
+// objetivos
+extern unsigned char isFinal(State *s);
+
 #endif

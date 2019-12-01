@@ -314,3 +314,14 @@ void buildMap(State *s, char *level) {
 	s->width = maxWidth;
 	s->height = height;
 };
+
+// Função que verifica se o estado é final
+// Dado que este algoritmo foi implementado possuindo os nívels -1, 00 e 01 em
+// mente, este não está preparado para níveis que possuam mais caixas que
+// objetivos
+unsigned char isFinal(State *s) {
+	if (s->boxes == s->boxesOnGoals) {
+		return 1;
+	}
+	return 0;
+}
